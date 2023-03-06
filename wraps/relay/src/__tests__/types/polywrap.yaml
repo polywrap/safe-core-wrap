@@ -1,0 +1,9 @@
+format: 0.3.0
+project:
+  name: relayer-app
+  type: app/typescript
+source:
+  schema: ./schema.graphql
+  import_abis:
+    - uri: "wrap://wrapper/relayer"
+      abi: "../../../build/wrap.info"

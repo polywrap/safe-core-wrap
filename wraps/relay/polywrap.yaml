@@ -1,0 +1,7 @@
+format: 0.3.0
+project:
+  name: relayer-wasm-rs
+  type: wasm/rust
+source:
+  module: ./Cargo.toml
+  schema: ./src/schema.graphql

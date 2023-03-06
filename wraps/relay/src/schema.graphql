@@ -1,0 +1,16 @@
+import { MetaTransactionOptions } from "../../common/schema.graphql"
+
+type Module {
+    relayTransaction(transaction: RelayTransaction!): RelayResponse!
+}
+
+type RelayTransaction {
+    target: String!
+    encodedTransaction: String!
+    chainId: Int!
+    options: MetaTransactionOptions!
+}
+
+type RelayResponse {
+    taskId: String!
+}
