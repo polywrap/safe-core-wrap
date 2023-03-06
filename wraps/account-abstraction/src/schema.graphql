@@ -1,0 +1,19 @@
+type Module {
+    relayTransaction(
+        transaction: MetaTransactionData!,
+        options: MetaTransactionOptions!
+    ): String!
+}
+
+type MetaTransactionData {
+    to: String!
+    value: BigInt!
+    data: String!
+    operation: Int
+}
+
+type MetaTransactionOptions {
+    gasLimit: BigInt!
+    gasToken: String
+    isSponsored: Boolean
+}

@@ -1,0 +1,9 @@
+format: 0.3.0
+project:
+  name: account-abstraction-app
+  type: app/typescript
+source:
+  schema: ./schema.graphql
+  import_abis:
+    - uri: "wrap://wrapper/account-abstraction"
+      abi: "../../../build/wrap.info"
