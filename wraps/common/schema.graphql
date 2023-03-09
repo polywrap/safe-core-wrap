@@ -1,0 +1,12 @@
+type MetaTransactionOptions {
+    gasLimit: BigInt!
+    gasToken: String
+    isSponsored: Boolean
+}
+
+type MetaTransactionData {
+    to: String!
+    value: BigInt!
+    data: String!
+    operation: Int
+}
