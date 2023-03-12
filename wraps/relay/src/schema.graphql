@@ -1,6 +1,8 @@
 import { MetaTransactionOptions } from "../../common/schema.graphql"
 
 type Module {
+    getFeeCollector: String!
+    getEstimateFee(chainId: Int!, gasLimit: BigInt!, gasToken: String): BigInt!
     relayTransaction(transaction: RelayTransaction!): RelayResponse!
 }
 

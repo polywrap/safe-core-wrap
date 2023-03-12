@@ -6,3 +6,6 @@ target
 workflows/output.json
 yarn-error.log
 yarn.lock
+.env
+Cargo.lock
+coverage
