@@ -1,4 +1,4 @@
-use polywrap_wasm_rs::BigInt;
+use polywrap_wasm_rs::{wrap_debug_log, BigInt};
 use std::collections::BTreeMap;
 
 use crate::{
@@ -12,16 +12,19 @@ use crate::{
             ArgsEncodeDeploySafe, ArgsPredictSafeAddress, ArgsSafeIsDeployed,
         },
         safe_factory_safe_account_config::SafeFactorySafeAccountConfig,
-        safe_manager_module::ArgsAddSignature,
+        safe_manager_module::ArgsGetSignature,
         ArgsEncodeExecTransaction, ArgsEncodeMultiSendData, ArgsGetSafeContractNetworks,
-        ArgsGetSignerAddress, SafeFactoryDeploymentInput, SafeFactorySafeDeploymentConfig,
+        ArgsGetSignerAddress, ArgsSendTransaction, SafeFactoryDeploymentInput,
+        SafeFactorySafeDeploymentConfig, safe_manager_ethereum_connection,
     },
-    EtherCoreConnection, EtherCoreModule, MetaTransactionData, MetaTransactionOptions,
-    RelayTransaction, SafeContractsModule, SafeContractsSafeTransaction,
+    EtherCoreConnection, EtherCoreModule, EtherCoreTxRequest, MetaTransactionData,
+    MetaTransactionOptions, RelayTransaction, SafeContractsModule, SafeContractsSafeTransaction,
     SafeContractsSafeTransactionData, SafeContractsSignSignature, SafeFactoryCustomContract,
     SafeFactoryEthereumConnection, SafeFactoryModule, SafeManagerModule,
     SafeManagerSafeTransaction, SafeManagerSafeTransactionData, SafeManagerSignSignature,
 };
+
+pub const ZERO_ADDRESS: &str = "0x0000000000000000000000000000000000000000";
 
 // keccak256(toUtf8Bytes('Safe Account Abstraction'))
 pub const PREDETERMINED_SALT_NONCE: &str =
@@ -52,11 +55,16 @@ impl AccountAbstraction for Safe {
         options: MetaTransactionOptions,
     ) -> String {
         let standardized_tx = self.standardize_transaction_data(data, options.clone());
-
         // get signature from signer of the sanitized transaction data
-        let transaction = SafeManagerModule::add_signature(&ArgsAddSignature {
+        let manager_connection = safe_manager_ethereum_connection::SafeManagerEthereumConnection {
+            node: self.connection.clone().node,
+            network_name_or_chain_id: self.connection.clone().network_name_or_chain_id,
+        };
+        let transaction = SafeManagerModule::get_signature(&ArgsGetSignature {
             tx: standardized_tx.into(),
             signing_method: None,
+            safe_address: self.address.as_str().to_string(),
+            connection: manager_connection.clone()
         })
         .unwrap();
 
@@ -68,7 +76,7 @@ impl AccountAbstraction for Safe {
             })
             .unwrap();
 
-        let (relay_transaction_target, encoded_transaction) = if !self.is_deployed() {
+        let (relay_transaction_target, encoded_transaction) = if self.is_deployed() {
             // if safe is deployed, just execute the previous sanitized transaction
             (self.address.as_str().to_string(), transaction_data)
         } else {
@@ -102,15 +110,32 @@ impl AccountAbstraction for Safe {
             )
         };
 
-        // @TODO: Attach relay transaction
-        let relay_transaction = RelayTransaction {
-            chain_id: self.chain_id,
-            encoded_transaction,
-            target: relay_transaction_target,
-            options,
+        let send_tx_args = ArgsSendTransaction {
+            tx: EtherCoreTxRequest {
+                to: Some(relay_transaction_target),
+                from: None,
+                data: Some(encoded_transaction),
+                _type: None,
+                chain_id: Some(BigInt::from(self.chain_id)),
+                access_list: None,
+                gas_limit: None,
+                max_fee_per_gas: None,
+                max_priority_fee_per_gas: None,
+                gas_price: None,
+                value: None,
+                nonce: None,
+            },
+            connection: Some(self.connection.clone()),
         };
-
-        todo!()
+        let tx_response = EtherCoreModule::send_transaction(&send_tx_args).unwrap();
+        tx_response.hash
+        // @TODO: Attach relay transaction
+        // let relay_transaction = RelayTransaction {
+        //     chain_id: self.chain_id,
+        //     encoded_transaction,
+        //     target: relay_transaction_target,
+        //     options,
+        // };
     }
 }
 
@@ -224,14 +249,7 @@ impl Safe {
     }
 
     pub fn is_deployed(&self) -> bool {
-        SafeFactoryModule::safe_is_deployed(&ArgsSafeIsDeployed {
-            safe_address: self.address.as_str().to_string(),
-            connection: SafeFactoryEthereumConnection {
-                network_name_or_chain_id: self.connection.clone().network_name_or_chain_id,
-                node: self.connection.clone().node,
-            },
-        })
-        .unwrap()
+        self.get_nonce() != BigInt::from(0)
     }
 
     pub fn get_nonce(&self) -> BigInt {
@@ -239,11 +257,17 @@ impl Safe {
             node: self.connection.clone().node,
             network_name_or_chain_id: self.connection.clone().network_name_or_chain_id,
         };
-        SafeContractsModule::get_nonce(&ArgsGetNonce {
+
+        let nonce = SafeContractsModule::get_nonce(&ArgsGetNonce {
             address: self.address.as_str().to_string(),
             connection: Some(connection),
-        })
-        .unwrap()
+        });
+
+        if let Ok(n) = nonce {
+            n
+        } else {
+            BigInt::from(0)
+        }
     }
 
     pub fn get_signer_address(&self) -> &String {
@@ -262,12 +286,12 @@ impl Safe {
                 value: transaction.value,
                 to: transaction.to,
                 operation: transaction.operation,
-                safe_tx_gas: None,
-                base_gas: None,
-                gas_price: None,
-                gas_token: None,
-                refund_receiver: None,
-                nonce: None,
+                safe_tx_gas: Some(BigInt::from(0)),
+                base_gas: Some(BigInt::from(0)),
+                gas_price: Some(BigInt::from(0)),
+                gas_token: Some(ZERO_ADDRESS.to_string()),
+                refund_receiver: Some(ZERO_ADDRESS.to_string()),
+                nonce: Some(self.get_nonce()),
             },
             signatures: None,
         }

@@ -6,11 +6,11 @@
   "scripts": {
     "build": "polywrap build -c ./client-config.ts",
     "deploy": "polywrap deploy",
-    "pretest": "polywrap codegen -m src/__tests__/types/polywrap.yaml -g ./src/__tests__/types/wrap",
+    "pretest": "polywrap codegen -m src/__tests__/types/polywrap.yaml -g ./src/__tests__/types/wrap -c ./client-config.ts",
     "test": "jest --runInBand --verbose"
  },
   "devDependencies": {
-    "@cbrazon/ethereum-provider-js": "0.2.6",
+    "@cbrazon/ethereum-provider-js": "0.2.7",
     "@polywrap/datetime-plugin-js": "1.0.0-pre.1",
     "@types/jest": "26.0.8",
     "dotenv": "16.0.3",

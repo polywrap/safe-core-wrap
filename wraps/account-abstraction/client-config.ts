@@ -4,7 +4,6 @@ import {
   Connection,
   Connections,
 } from "@cbrazon/ethereum-provider-js";
-import { providers } from "@polywrap/test-env-js";
 import { IClientConfigBuilder } from "@polywrap/client-config-builder-js";
 import { dateTimePlugin } from "@polywrap/datetime-plugin-js";
 import { config } from "dotenv";
@@ -36,22 +35,28 @@ export function configure(builder: IClientConfigBuilder): IClientConfigBuilder {
                 provider: process.env.RPC_URL as string,
                 signer: new Wallet(process.env.PRIVATE_KEY as string),
               }),
-              testnet: new Connection({
-                provider: providers.ethereum
-              })
-            }
+            },
           }),
         }),
         "wrap://ens/datetime.polywrap.eth": dateTimePlugin({}) as IWrapPackage,
       })
+      .addEnv("wrap://wrapper/account-abstraction", {
+        connection: {
+          networkNameOrChainId: "goerli",
+        },
+      })
       .addInterfaceImplementation(
-        "wrap://ens/wraps.eth:ethereum-provider@1.1.0",
+        "wrap://ipfs/QmbNpog6uhPSMwa9zEnpFvS6UCbuaA63ihBepmgfdZPNd4",
         "wrap://ens/wraps.eth:ethereum-provider@1.1.0"
       )
       // @TODO(cbrzn): Remove this once the ENS text record content hash has been updated
       .addRedirect(
-        "ens/wraps.eth:ethereum@1.1.0",
-        "wrap://ipfs/QmbnAG8iCdVMPQK8tQ5qqFwLKjaLF8BUuuLYiozj7mLF8Y"
+        "wrap://ens/wraps.eth:ethereum@1.1.0",
+        "wrap://ipfs/QmSaK7zFokrQYWTacmKkjcAxY5xkGKxKBSiTW2MFZ3WsR8"
+      )
+      .addRedirect(
+        "wrap://ens/wraps.eth:ethereum-utils@0.0.1",
+        "wrap://ipfs/QmVNg4yFFngvtzxU49Hz1aujnwsxRbxhsGWf1iL1qwdtmN"
       )
       .addRedirect(
         "wrap://ens/safe.wraps.eth:contracts@0.0.1",
