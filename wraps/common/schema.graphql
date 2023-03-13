@@ -8,5 +8,16 @@ type MetaTransactionData {
     to: String!
     value: BigInt!
     data: String!
-    operation: Int
+    operation: BigInt
+}
+
+type RelayTransaction {
+    target: String!
+    encodedTransaction: String!
+    chainId: Int!
+    options: MetaTransactionOptions!
+}
+
+type RelayResponse {
+    taskId: String!
 }
