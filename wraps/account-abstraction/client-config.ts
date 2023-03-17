@@ -3,7 +3,7 @@ import {
   ethereumProviderPlugin,
   Connection,
   Connections,
-} from "@cbrazon/ethereum-provider-js";
+} from "@polywrap/ethereum-provider-js";
 import { IClientConfigBuilder } from "@polywrap/client-config-builder-js";
 import { dateTimePlugin } from "@polywrap/datetime-plugin-js";
 import { config } from "dotenv";
@@ -28,7 +28,7 @@ export function configure(builder: IClientConfigBuilder): IClientConfigBuilder {
     builder
       .addDefaults()
       .addPackages({
-        "wrap://ens/wraps.eth:ethereum-provider@1.1.0": ethereumProviderPlugin({
+        "wrap://ens/wraps.eth:ethereum-provider@2.0.0": ethereumProviderPlugin({
           connections: new Connections({
             networks: {
               goerli: new Connection({
@@ -37,7 +37,7 @@ export function configure(builder: IClientConfigBuilder): IClientConfigBuilder {
               }),
             },
           }),
-        }),
+        }) as IWrapPackage,
         "wrap://ens/datetime.polywrap.eth": dateTimePlugin({}) as IWrapPackage,
       })
       .addEnv("wrap://wrapper/account-abstraction", {
@@ -45,15 +45,7 @@ export function configure(builder: IClientConfigBuilder): IClientConfigBuilder {
           networkNameOrChainId: "goerli",
         },
       })
-      .addInterfaceImplementation(
-        "wrap://ipfs/QmbNpog6uhPSMwa9zEnpFvS6UCbuaA63ihBepmgfdZPNd4",
-        "wrap://ens/wraps.eth:ethereum-provider@1.1.0"
-      )
       // @TODO(cbrzn): Remove this once the ENS text record content hash has been updated
-      .addRedirect(
-        "wrap://ens/wraps.eth:ethereum@1.1.0",
-        "wrap://ipfs/QmSaK7zFokrQYWTacmKkjcAxY5xkGKxKBSiTW2MFZ3WsR8"
-      )
       .addRedirect(
         "wrap://ens/wraps.eth:ethereum-utils@0.0.1",
         "wrap://ipfs/QmVNg4yFFngvtzxU49Hz1aujnwsxRbxhsGWf1iL1qwdtmN"
@@ -69,6 +61,10 @@ export function configure(builder: IClientConfigBuilder): IClientConfigBuilder {
       .addRedirect(
         "wrap://ens/safe.wraps.eth:manager@0.0.1",
         "wrap://fs/../../../safe-contracts-wrapper/packages/safe-managers-wrapper/build"
+      )
+      .addInterfaceImplementation(
+        "wrap://ens/wraps.eth:ethereum-provider@2.0.0",
+        "wrap://ens/wraps.eth:ethereum-provider@2.0.0"
       )
   );
 }

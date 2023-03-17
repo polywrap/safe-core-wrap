@@ -1,6 +1,5 @@
-
 import { MetaTransactionData, MetaTransactionOptions, RelayTransaction } from "../../common/schema.graphql"
-import { Module, Connection } into EtherCore from "wrap://ens/wraps.eth:ethereum@1.1.0"
+import { Module, Connection } into EtherCore from "wrap://ens/wraps.eth:ethereum@2.0.0"
 import { Module } into SafeContracts from "wrap://ens/safe.wraps.eth:contracts@0.0.1"
 import { Module } into SafeManager from "wrap://ens/safe.wraps.eth:manager@0.0.1"
 import { Module } into SafeFactory from "wrap://ens/safe.wraps.eth:factory@0.0.1"
