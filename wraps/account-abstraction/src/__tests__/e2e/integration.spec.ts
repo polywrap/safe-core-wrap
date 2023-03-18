@@ -19,6 +19,11 @@ describe("Account abstraction wrapper", () => {
         networkNameOrChainId: "goerli"
       }
     })
+    .addEnv(
+      "wrap://ens/account-abstraction.wraps.eth:relayer-adapter@0.0.1", {
+        relayerApiKey: "AiaCshYRyAUzTNfZZb8LftJaAl2SS3I8YwhJJXc5J7A_"
+      }
+    )
     .addRedirect(wrapperUri, wrapperFsUri)
   const client = new PolywrapClient(configuredBuilder.build());
 
@@ -33,14 +38,14 @@ describe("Account abstraction wrapper", () => {
       to: "0x56535D1162011E54aa2F6B003d02Db171c17e41e",
       value: "0",
       data: encodedFunction.value,
-      operation: "0",
+      operation: "1",
     };
 
     const metaTransactionOptions = {
-      gasLimit: "0",
-      gasToken: "",
-      isSponsored: false,
+      gasLimit: "250000",
     };
+
+    
 
     const result = await App.AccountAbstraction_Module.relayTransaction(
       {

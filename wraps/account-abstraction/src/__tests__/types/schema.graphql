@@ -1,2 +1,3 @@
-#import * into AccountAbstraction from "wrap://wrapper/account-abstraction"
+import * into AccountAbstraction from "wrap://wrapper/account-abstraction"
 import { Module } into EthersUtils from "wrap://ens/wraps.eth:ethereum-utils@0.0.1"
+import { Module, Connection } into EtherCore from "wrap://ens/wraps.eth:ethereum@2.0.0"

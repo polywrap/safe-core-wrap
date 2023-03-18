@@ -1,4 +1,4 @@
-use polywrap_wasm_rs::{wrap_debug_log, BigInt};
+use polywrap_wasm_rs::{BigInt};
 use std::collections::BTreeMap;
 
 use crate::{
@@ -9,19 +9,23 @@ use crate::{
         safe_contracts_module::serialization::ArgsGetNonce,
         safe_factory_ethereum_connection,
         safe_factory_module::serialization::{
-            ArgsEncodeDeploySafe, ArgsPredictSafeAddress, ArgsSafeIsDeployed,
+            ArgsEncodeDeploySafe, ArgsPredictSafeAddress,
         },
         safe_factory_safe_account_config::SafeFactorySafeAccountConfig,
         safe_manager_module::ArgsGetSignature,
         ArgsEncodeExecTransaction, ArgsEncodeMultiSendData, ArgsGetSafeContractNetworks,
-        ArgsGetSignerAddress, ArgsSendTransaction, SafeFactoryDeploymentInput,
+        ArgsGetSignerAddress, SafeFactoryDeploymentInput,
         SafeFactorySafeDeploymentConfig, safe_manager_ethereum_connection,
+        relayer_module::serialization::ArgsRelayTransaction,
+        relayer_relay_transaction::RelayerRelayTransaction,
+        relayer_meta_transaction_options::RelayerMetaTransactionOptions, ArgsGetEstimateFee, ArgsGetFeeCollector
     },
-    EtherCoreConnection, EtherCoreModule, EtherCoreTxRequest, MetaTransactionData,
-    MetaTransactionOptions, RelayTransaction, SafeContractsModule, SafeContractsSafeTransaction,
+    EtherCoreConnection, EtherCoreModule, MetaTransactionData,
+    MetaTransactionOptions, SafeContractsModule, SafeContractsSafeTransaction,
     SafeContractsSafeTransactionData, SafeContractsSignSignature, SafeFactoryCustomContract,
-    SafeFactoryEthereumConnection, SafeFactoryModule, SafeManagerModule,
+    RelayerModule, SafeFactoryModule, SafeManagerModule,
     SafeManagerSafeTransaction, SafeManagerSafeTransactionData, SafeManagerSignSignature,
+
 };
 
 pub const ZERO_ADDRESS: &str = "0x0000000000000000000000000000000000000000";
@@ -110,32 +114,21 @@ impl AccountAbstraction for Safe {
             )
         };
 
-        let send_tx_args = ArgsSendTransaction {
-            tx: EtherCoreTxRequest {
-                to: Some(relay_transaction_target),
-                from: None,
-                data: Some(encoded_transaction),
-                _type: None,
-                chain_id: Some(BigInt::from(self.chain_id)),
-                access_list: None,
-                gas_limit: None,
-                max_fee_per_gas: None,
-                max_priority_fee_per_gas: None,
-                gas_price: None,
-                value: None,
-                nonce: None,
+        let relay_transaction = RelayerRelayTransaction {
+            chain_id: self.chain_id,
+            encoded_transaction,
+            target: relay_transaction_target,
+            options: RelayerMetaTransactionOptions {
+                gas_limit: options.gas_limit,
+                gas_token: options.gas_token,
+                is_sponsored: options.is_sponsored
             },
-            connection: Some(self.connection.clone()),
         };
-        let tx_response = EtherCoreModule::send_transaction(&send_tx_args).unwrap();
-        tx_response.hash
-        // @TODO: Attach relay transaction
-        // let relay_transaction = RelayTransaction {
-        //     chain_id: self.chain_id,
-        //     encoded_transaction,
-        //     target: relay_transaction_target,
-        //     options,
-        // };
+        let transaction_relayed = RelayerModule::relay_transaction(&ArgsRelayTransaction {
+            transaction: relay_transaction,
+        }).unwrap();
+
+        transaction_relayed.task_id
     }
 }
 
@@ -274,12 +267,47 @@ impl Safe {
         &self.signer
     }
 
-    // @TODO: Use options for relayer
     fn standardize_transaction_data(
         &self,
         transaction: MetaTransactionData,
         options: MetaTransactionOptions,
     ) -> SafeContractsSafeTransaction {
+        let is_sponsored = if let Some(i) = options.is_sponsored {
+            i
+        } else {
+            false
+        };
+
+        let gas_token = if let Some(token) = options.gas_token {
+            Box::new(token)
+        } else {
+            Box::new(ZERO_ADDRESS.to_string())
+        };
+
+        let estimation = RelayerModule::get_estimate_fee(&ArgsGetEstimateFee{
+            chain_id: self.chain_id,
+            gas_limit: options.gas_limit,
+            gas_token: Some(*gas_token.clone()),
+        }).unwrap();
+
+        let base_gas = if is_sponsored {
+            estimation
+        } else {
+            BigInt::from(0)
+        };
+
+        let gas_price = if is_sponsored {
+            BigInt::from(1)
+        } else {
+            BigInt::from(0)
+        };
+
+        let refund_receiver = if is_sponsored {
+            RelayerModule::get_fee_collector(&ArgsGetFeeCollector{}).unwrap()
+        } else {
+            ZERO_ADDRESS.to_string()
+        };
+
         SafeContractsSafeTransaction {
             data: SafeContractsSafeTransactionData {
                 data: transaction.data,
@@ -287,10 +315,10 @@ impl Safe {
                 to: transaction.to,
                 operation: transaction.operation,
                 safe_tx_gas: Some(BigInt::from(0)),
-                base_gas: Some(BigInt::from(0)),
-                gas_price: Some(BigInt::from(0)),
-                gas_token: Some(ZERO_ADDRESS.to_string()),
-                refund_receiver: Some(ZERO_ADDRESS.to_string()),
+                base_gas: Some(base_gas),
+                gas_price: Some(gas_price),
+                gas_token: Some(*gas_token),
+                refund_receiver: Some(refund_receiver),
                 nonce: Some(self.get_nonce()),
             },
             signatures: None,

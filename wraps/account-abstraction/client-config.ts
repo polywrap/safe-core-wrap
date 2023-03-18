@@ -51,6 +51,14 @@ export function configure(builder: IClientConfigBuilder): IClientConfigBuilder {
         "wrap://ipfs/QmVNg4yFFngvtzxU49Hz1aujnwsxRbxhsGWf1iL1qwdtmN"
       )
       .addRedirect(
+        "wrap://ens/account-abstraction.wraps.eth:relayer-adapter@0.0.1",
+        "wrap://fs/../relay/build"
+      )
+      .addRedirect(
+        "wrap://ens/gelato.wraps.eth:relayer@0.0.1",
+        "wrap://fs/../../../../polywrap/gelato-relay-polywrap/build"
+      )
+      .addRedirect(
         "wrap://ens/safe.wraps.eth:contracts@0.0.1",
         "wrap://fs/../../../safe-contracts-wrapper/packages/safe-contracts-wrapper/build"
       )
