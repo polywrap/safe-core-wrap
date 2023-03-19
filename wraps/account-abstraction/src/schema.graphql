@@ -8,8 +8,10 @@ import { Module } into SafeFactory from "wrap://ens/safe.wraps.eth:factory@0.0.1
 type Module {
     relayTransaction(
         transaction: MetaTransactionData!,
-        options: MetaTransactionOptions!
+        options: MetaTransactionOptions!,
+        config: 
     ): String! @env(required: true)
+    getSafeAddress: String! @env(required: true)
 }
 
 type Env {

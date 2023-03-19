@@ -13,3 +13,11 @@ pub fn relay_transaction(args: ArgsRelayTransaction, env: Env) -> String {
     let relayed_tx_hash = safe.relay_transaction(args.transaction, args.options);
     relayed_tx_hash
 }
+
+pub fn get_safe_address(_: ArgsGetSafeAddress, env: Env) -> String {
+    if let None = env.connection {
+        panic!("No connection given through env")
+    }
+    let safe = Safe::new(env.connection.unwrap(), None);
+    safe.get_address()
+}

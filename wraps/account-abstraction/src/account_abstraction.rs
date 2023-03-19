@@ -237,11 +237,12 @@ impl Safe {
         }
     }
 
-    pub fn get_address(&self) -> &String {
-        &self.address
+    pub fn get_address(self) -> String {
+        self.address
     }
 
     pub fn is_deployed(&self) -> bool {
+        // @TODO: Check with eth_getCode RPC Call
         self.get_nonce() != BigInt::from(0)
     }
 
@@ -290,22 +291,22 @@ impl Safe {
             gas_token: Some(*gas_token.clone()),
         }).unwrap();
 
-        let base_gas = if is_sponsored {
-            estimation
-        } else {
-            BigInt::from(0)
-        };
+        // let base_gas = if is_sponsored {
+        //     BigInt::from(0)
+        // } else {
+        //     estimation
+        // };
 
         let gas_price = if is_sponsored {
-            BigInt::from(1)
-        } else {
             BigInt::from(0)
+        } else {
+            BigInt::from(1)
         };
 
         let refund_receiver = if is_sponsored {
-            RelayerModule::get_fee_collector(&ArgsGetFeeCollector{}).unwrap()
-        } else {
             ZERO_ADDRESS.to_string()
+        } else {
+            RelayerModule::get_fee_collector(&ArgsGetFeeCollector{}).unwrap()
         };
 
         SafeContractsSafeTransaction {
@@ -315,7 +316,7 @@ impl Safe {
                 to: transaction.to,
                 operation: transaction.operation,
                 safe_tx_gas: Some(BigInt::from(0)),
-                base_gas: Some(base_gas),
+                base_gas: Some(BigInt::from(0)),
                 gas_price: Some(gas_price),
                 gas_token: Some(*gas_token),
                 refund_receiver: Some(refund_receiver),
