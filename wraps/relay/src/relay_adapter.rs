@@ -8,7 +8,7 @@ use crate::{
     },
     meta_transaction_options::MetaTransactionOptions,
     wrap::GelatoRelayerRelayResponse,
-    Env, GelatoRelayerModule, RelayResponse, RelayTransaction,
+    Env, GelatoRelayerModule, RelayResponse, RelayTransaction, GelatoRelayerRelayRequestOptions,
 };
 
 const GELATO_NATIVE_TOKEN_ADDRESS: &str = "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE";
@@ -123,7 +123,10 @@ impl GelatoRelayer {
                 fee_token,
                 is_relay_context: Some(false),
             },
-            options: None,
+            options: Some(GelatoRelayerRelayRequestOptions {
+                gas_limit: Some(options.gas_limit),
+                retries: None
+            }),
         })
         .unwrap()
         .into()

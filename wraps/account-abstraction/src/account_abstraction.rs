@@ -1,4 +1,4 @@
-use polywrap_wasm_rs::{BigInt};
+use polywrap_wasm_rs::{BigInt, wrap_debug_log};
 use std::collections::BTreeMap;
 
 use crate::{
@@ -22,7 +22,7 @@ use crate::{
     },
     EtherCoreConnection, EtherCoreModule, MetaTransactionData,
     MetaTransactionOptions, SafeContractsModule, SafeContractsSafeTransaction,
-    SafeContractsSafeTransactionData, SafeContractsSignSignature, SafeFactoryCustomContract,
+    SafeContractsSafeTransactionData, SafeContractsSignSignature, DeploymentParameters,
     RelayerModule, SafeFactoryModule, SafeManagerModule,
     SafeManagerSafeTransaction, SafeManagerSafeTransactionData, SafeManagerSignSignature,
 
@@ -132,11 +132,6 @@ impl AccountAbstraction for Safe {
     }
 }
 
-pub struct DeploymentParameters {
-    custom_contract_addresses: Option<SafeFactoryCustomContract>,
-    salt_nonce: Option<String>,
-}
-
 impl Safe {
     pub fn new(connection: EtherCoreConnection, params: Option<DeploymentParameters>) -> Self {
         let factory_connection = safe_factory_ethereum_connection::SafeFactoryEthereumConnection {
@@ -165,6 +160,7 @@ impl Safe {
 
         if let Some(config) = params {
             if let Some(salt) = config.salt_nonce {
+                wrap_debug_log("yes salt is being set");
                 deployment_config.salt_nonce = salt;
             }
 
@@ -291,11 +287,11 @@ impl Safe {
             gas_token: Some(*gas_token.clone()),
         }).unwrap();
 
-        // let base_gas = if is_sponsored {
-        //     BigInt::from(0)
-        // } else {
-        //     estimation
-        // };
+        let base_gas = if is_sponsored {
+            BigInt::from(0)
+        } else {
+            estimation
+        };
 
         let gas_price = if is_sponsored {
             BigInt::from(0)
@@ -316,7 +312,7 @@ impl Safe {
                 to: transaction.to,
                 operation: transaction.operation,
                 safe_tx_gas: Some(BigInt::from(0)),
-                base_gas: Some(BigInt::from(0)),
+                base_gas: Some(base_gas),
                 gas_price: Some(gas_price),
                 gas_token: Some(*gas_token),
                 refund_receiver: Some(refund_receiver),

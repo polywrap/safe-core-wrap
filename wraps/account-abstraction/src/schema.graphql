@@ -3,17 +3,22 @@ import { Module, Connection } into EtherCore from "wrap://ens/wraps.eth:ethereum
 import { Module } into Relayer from "wrap://ens/account-abstraction.wraps.eth:relayer-adapter@0.0.1"
 import { Module } into SafeContracts from "wrap://ens/safe.wraps.eth:contracts@0.0.1"
 import { Module } into SafeManager from "wrap://ens/safe.wraps.eth:manager@0.0.1"
-import { Module } into SafeFactory from "wrap://ens/safe.wraps.eth:factory@0.0.1"
+import { Module, CustomContract } into SafeFactory from "wrap://ens/safe.wraps.eth:factory@0.0.1"
 
 type Module {
     relayTransaction(
-        transaction: MetaTransactionData!,
-        options: MetaTransactionOptions!,
-        config: 
+        transaction: MetaTransactionData!
+        options: MetaTransactionOptions!
+        config: DeploymentParameters
     ): String! @env(required: true)
     getSafeAddress: String! @env(required: true)
 }
 
 type Env {
     connection: EtherCore_Connection
+}
+
+type DeploymentParameters {
+    saltNonce: String
+    customContractAddresses: SafeFactory_CustomContract
 }
