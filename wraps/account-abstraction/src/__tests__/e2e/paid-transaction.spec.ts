@@ -64,7 +64,10 @@ describe("Paid transaction AA wrapper", () => {
     if (!estimation.ok) throw estimation.error;
 
     const safeAddress = await App.AccountAbstraction_Module.getSafeAddress(
-      {},
+      {
+      config: {
+        saltNonce: "0x99"
+      }},
       client,
       accountAbstractionWrapperUri
     );
@@ -117,19 +120,25 @@ describe("Paid transaction AA wrapper", () => {
     }
     const metaTransactionOptions = {
       gasLimit: "250000",
-      gasToken: "0x0000000000000000000000000000000000000000"
     };
+
+    console.log("Relaying paid transaction...")
     const result = await App.AccountAbstraction_Module.relayTransaction(
       {
         transaction: metaTransactionData,
         options: metaTransactionOptions,
+        config: {
+          saltNonce: "0x99"
+        }
       },
       client,
       accountAbstractionWrapperUri
     );
-    expect(result.ok).toBeTruthy();
+    
     if (!result.ok) fail(result.error);
-    console.log("Task id: ", result.value)
+    expect(result.ok).toBeTruthy();
+    console.log("Transaction has been relayed...")
+    console.log(`Task URL: https://relay.gelato.digital/tasks/status/${result.value}`)
     expect(result.value).toBeTruthy();
   });
 });

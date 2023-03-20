@@ -11,7 +11,9 @@ type Module {
         options: MetaTransactionOptions!
         config: DeploymentParameters
     ): String! @env(required: true)
-    getSafeAddress: String! @env(required: true)
+    getSafeAddress(
+        config: DeploymentParameters
+    ): String! @env(required: true)
 }
 
 type Env {

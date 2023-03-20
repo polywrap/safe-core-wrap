@@ -1,4 +1,4 @@
-use polywrap_wasm_rs::{BigInt, wrap_debug_log};
+use polywrap_wasm_rs::{BigInt};
 use std::collections::BTreeMap;
 
 use crate::{
@@ -149,19 +149,13 @@ impl Safe {
         })
         .unwrap();
 
-        let mut deployment_config = SafeFactorySafeDeploymentConfig {
-            salt_nonce: PREDETERMINED_SALT_NONCE.to_string(),
-            is_l1_safe: None,
-            version: None,
-        };
-
         let mut custom_contract_addresses = None;
         let mut factory_address = String::new();
+        let mut salt_nonce = PREDETERMINED_SALT_NONCE.to_string();
 
         if let Some(config) = params {
             if let Some(salt) = config.salt_nonce {
-                wrap_debug_log("yes salt is being set");
-                deployment_config.salt_nonce = salt;
+                salt_nonce = salt
             }
 
             if let Some(custom_contracts) = config.custom_contract_addresses {
@@ -202,6 +196,11 @@ impl Safe {
                 panic!("Could not fetch multisend contract")
             };
 
+        let deployment_config = SafeFactorySafeDeploymentConfig {
+            salt_nonce,
+            is_l1_safe: None,
+            version: None,
+        };
         let deployment_info = SafeFactoryDeploymentInput {
             safe_account_config: SafeFactorySafeAccountConfig {
                 owners: vec![signer.as_str().to_string()],
