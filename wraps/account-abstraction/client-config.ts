@@ -48,7 +48,7 @@ export function configure(builder: IClientConfigBuilder): IClientConfigBuilder {
       // @TODO(cbrzn): Remove this once the ENS text record content hash has been updated
       .addRedirect(
         "wrap://ens/wraps.eth:ethereum@2.0.0",
-        "wrap://ipfs/QmWYLw3UL2oxbKXRqgQtz1xUMYJrnn9bgwrKdZ8SxLDsh1"
+        "wrap://ipfs/QmUX4nafTqncmtucMSJGKVNB6WbEaRJLWJHMVMcZy751S9"
       )
       .addRedirect(
         "wrap://ens/wraps.eth:ethereum-utils@0.0.1",

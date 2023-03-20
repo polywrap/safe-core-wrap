@@ -11,6 +11,8 @@ const connection = {
   networkNameOrChainId: "goerli",
 };
 
+const saltNonce = "0x474447"
+
 describe("Paid transaction AA wrapper", () => {
   const dirname: string = path.resolve(__dirname);
   const wrapperPath: string = path.join(dirname, "..", "..", "..");
@@ -39,7 +41,7 @@ describe("Paid transaction AA wrapper", () => {
     const encodedFunction = await EthersUtils_Module.encodeFunction(
       {
         method: "function store(uint256 num) public",
-        args: ["10"],
+        args: ["987"],
       },
       client,
       etherUtilsWrapperUri
@@ -66,7 +68,7 @@ describe("Paid transaction AA wrapper", () => {
     const safeAddress = await App.AccountAbstraction_Module.getSafeAddress(
       {
       config: {
-        saltNonce: "0x99"
+        saltNonce
       }},
       client,
       accountAbstractionWrapperUri
@@ -128,7 +130,7 @@ describe("Paid transaction AA wrapper", () => {
         transaction: metaTransactionData,
         options: metaTransactionOptions,
         config: {
-          saltNonce: "0x99"
+          saltNonce
         }
       },
       client,
