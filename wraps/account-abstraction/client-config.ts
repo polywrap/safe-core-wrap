@@ -36,6 +36,7 @@ export function configure(builder: IClientConfigBuilder): IClientConfigBuilder {
                 signer: new Wallet(process.env.PRIVATE_KEY as string),
               }),
             },
+            defaultNetwork: "goerli"
           }),
         }) as IWrapPackage,
         "wrap://ens/datetime.polywrap.eth": dateTimePlugin({}) as IWrapPackage,
@@ -51,28 +52,12 @@ export function configure(builder: IClientConfigBuilder): IClientConfigBuilder {
         "wrap://ipfs/QmUX4nafTqncmtucMSJGKVNB6WbEaRJLWJHMVMcZy751S9"
       )
       .addRedirect(
-        "wrap://ens/wraps.eth:ethereum-utils@0.0.1",
-        "wrap://ipfs/QmVNg4yFFngvtzxU49Hz1aujnwsxRbxhsGWf1iL1qwdtmN"
-      )
-      .addRedirect(
         "wrap://ens/account-abstraction.wraps.eth:relayer-adapter@0.0.1",
         "wrap://fs/../relay/build"
       )
       .addRedirect(
         "wrap://ens/gelato.wraps.eth:relayer@0.0.1",
         "wrap://fs/../../../../polywrap/gelato-relay-polywrap/build"
-      )
-      .addRedirect(
-        "wrap://ens/safe.wraps.eth:contracts@0.0.1",
-        "wrap://fs/../../../safe-contracts-wrapper/packages/safe-contracts-wrapper/build"
-      )
-      .addRedirect(
-        "wrap://ens/safe.wraps.eth:factory@0.0.1",
-        "wrap://fs/../../../safe-contracts-wrapper/packages/safe-factory-wrapper/build"
-      )
-      .addRedirect(
-        "wrap://ens/safe.wraps.eth:manager@0.0.1",
-        "wrap://fs/../../../safe-contracts-wrapper/packages/safe-managers-wrapper/build"
       )
       .addInterfaceImplementation(
         "wrap://ens/wraps.eth:ethereum-provider@2.0.0",

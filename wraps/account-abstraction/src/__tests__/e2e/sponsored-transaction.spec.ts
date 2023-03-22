@@ -3,6 +3,7 @@ import * as App from "../types/wrap";
 import path from "path";
 import { configure } from "../../../client-config";
 import { EthersUtils_Module } from "../types/wrap";
+import { BigNumber } from "ethers";
 
 jest.setTimeout(60000);
 
@@ -10,7 +11,7 @@ const connection = {
   networkNameOrChainId: "goerli",
 };
 
-const saltNonce = "0x258888"
+const saltNonce = "0x258802387238728372837283726"
 
 describe("Sponsored transaction AA wrapper", () => {
   const dirname: string = path.resolve(__dirname);
@@ -18,7 +19,7 @@ describe("Sponsored transaction AA wrapper", () => {
   const accountAbstractionWrapperFsUri = `fs/${wrapperPath}/build`;
 
   const accountAbstractionWrapperUri = "wrap://wrapper/account-abstraction";
-  const etherUtilsWrapperUri = "wrap://ens/wraps.eth:ethereum-utils@0.0.1";
+  const etherUtilsWrapperUri = "wrap://ens/ethers.wraps.eth:utils@0.1.0";
   const etherCoreWrapperUri = "wrap://ens/wraps.eth:ethereum@2.0.0";
   const relayerAdapterWrapperUri =
     "wrap://ens/account-abstraction.wraps.eth:relayer-adapter@0.0.1";
@@ -40,7 +41,7 @@ describe("Sponsored transaction AA wrapper", () => {
     const encodedFunction = await EthersUtils_Module.encodeFunction(
       {
         method: "function store(uint256 num) public",
-        args: ["50"],
+        args: ["4"],
       },
       client,
       etherUtilsWrapperUri
@@ -54,10 +55,20 @@ describe("Sponsored transaction AA wrapper", () => {
       operation: "0",
     };
 
+    const gasLimit = await App.EtherCore_Module.estimateTransactionGas({
+      tx: {
+        to: metaTransactionData.to,
+        value: metaTransactionData.value,
+        data: metaTransactionData.data
+      }
+    }, client, etherCoreWrapperUri)
+    if (!gasLimit.ok) throw gasLimit.error;
+
+    const gaslimitWithBuffer = BigNumber.from(gasLimit.value).add(250_000).toString()
     const estimation = await App.Relayer_Module.getEstimateFee(
       {
         chainId: 5,
-        gasLimit: "250000",
+        gasLimit: gaslimitWithBuffer,
       },
       client,
       relayerAdapterWrapperUri
@@ -67,7 +78,7 @@ describe("Sponsored transaction AA wrapper", () => {
     const safeAddress = await App.AccountAbstraction_Module.getSafeAddress(
       {
         config: {
-          saltNonce
+          // saltNonce
         }
       },
       client,
@@ -92,7 +103,7 @@ describe("Sponsored transaction AA wrapper", () => {
     console.log(`Fee estimation: ${estimationInEth.value} ETH`);
 
     const metaTransactionOptions = {
-      gasLimit: "250000",
+      gasLimit: gaslimitWithBuffer,
       isSponsored: true
     };
 
@@ -102,7 +113,7 @@ describe("Sponsored transaction AA wrapper", () => {
         transaction: metaTransactionData,
         options: metaTransactionOptions,
         config: {
-          saltNonce
+          // saltNonce
         }
       },
       client,

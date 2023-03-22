@@ -4,28 +4,26 @@ use std::collections::BTreeMap;
 use crate::{
     imported::{
         ether_core_module::serialization::ArgsGetChainId,
+        relayer_meta_transaction_options::RelayerMetaTransactionOptions,
+        relayer_module::serialization::ArgsRelayTransaction,
+        relayer_relay_transaction::RelayerRelayTransaction,
         safe_contracts_contract_networks_filter::SafeContractsContractNetworksFilter,
         safe_contracts_ethereum_connection,
         safe_contracts_module::serialization::ArgsGetNonce,
         safe_factory_ethereum_connection,
-        safe_factory_module::serialization::{
-            ArgsEncodeDeploySafe, ArgsPredictSafeAddress,
-        },
+        safe_factory_module::serialization::{ArgsEncodeDeploySafe, ArgsPredictSafeAddress},
         safe_factory_safe_account_config::SafeFactorySafeAccountConfig,
+        safe_manager_ethereum_connection,
         safe_manager_module::ArgsGetSignature,
-        ArgsEncodeExecTransaction, ArgsEncodeMultiSendData, ArgsGetSafeContractNetworks,
-        ArgsGetSignerAddress, SafeFactoryDeploymentInput,
-        SafeFactorySafeDeploymentConfig, safe_manager_ethereum_connection,
-        relayer_module::serialization::ArgsRelayTransaction,
-        relayer_relay_transaction::RelayerRelayTransaction,
-        relayer_meta_transaction_options::RelayerMetaTransactionOptions, ArgsGetEstimateFee, ArgsGetFeeCollector
+        ArgsEncodeExecTransaction, ArgsEncodeMultiSendData, ArgsGetEstimateFee,
+        ArgsGetFeeCollector, ArgsGetSafeContractNetworks, ArgsGetSignerAddress, ArgsSafeIsDeployed,
+        SafeFactoryDeploymentInput, SafeFactorySafeDeploymentConfig,
     },
-    EtherCoreConnection, EtherCoreModule, MetaTransactionData,
-    MetaTransactionOptions, SafeContractsModule, SafeContractsSafeTransaction,
-    SafeContractsSafeTransactionData, SafeContractsSignSignature, DeploymentParameters,
-    RelayerModule, SafeFactoryModule, SafeManagerModule,
-    SafeManagerSafeTransaction, SafeManagerSafeTransactionData, SafeManagerSignSignature,
-
+    DeploymentParameters, EtherCoreConnection, EtherCoreModule, MetaTransactionData,
+    MetaTransactionOptions, RelayerModule, SafeContractsModule, SafeContractsSafeTransaction,
+    SafeContractsSafeTransactionData, SafeContractsSignSignature, SafeFactoryModule,
+    SafeManagerModule, SafeManagerSafeTransaction, SafeManagerSafeTransactionData,
+    SafeManagerSignSignature,
 };
 
 pub const ZERO_ADDRESS: &str = "0x0000000000000000000000000000000000000000";
@@ -42,6 +40,7 @@ pub trait AccountAbstraction {
     ) -> String;
 }
 
+#[derive(Clone)]
 pub struct Safe {
     signer: String,
     chain_id: i32,
@@ -68,7 +67,7 @@ impl AccountAbstraction for Safe {
             tx: standardized_tx.into(),
             signing_method: None,
             safe_address: self.address.as_str().to_string(),
-            connection: manager_connection.clone()
+            connection: manager_connection.clone(),
         })
         .unwrap();
 
@@ -121,12 +120,13 @@ impl AccountAbstraction for Safe {
             options: RelayerMetaTransactionOptions {
                 gas_limit: options.gas_limit,
                 gas_token: options.gas_token,
-                is_sponsored: options.is_sponsored
+                is_sponsored: options.is_sponsored,
             },
         };
         let transaction_relayed = RelayerModule::relay_transaction(&ArgsRelayTransaction {
             transaction: relay_transaction,
-        }).unwrap();
+        })
+        .unwrap();
 
         transaction_relayed.task_id
     }
@@ -237,8 +237,16 @@ impl Safe {
     }
 
     pub fn is_deployed(&self) -> bool {
-        // @TODO: Check with eth_getCode RPC Call
-        self.get_nonce() != BigInt::from(0)
+        //@TODO: Check why this does not works
+        // SafeFactoryModule::safe_is_deployed(&ArgsSafeIsDeployed {
+        //     safe_address: self.address.as_str().to_string(),
+        //     connection: safe_factory_ethereum_connection::SafeFactoryEthereumConnection {
+        //         node: self.connection.clone().node,
+        //         network_name_or_chain_id: self.connection.clone().network_name_or_chain_id,
+        //     },
+        // })
+        // .unwrap()
+        self.get_nonce() > BigInt::from(0)
     }
 
     pub fn get_nonce(&self) -> BigInt {
@@ -280,11 +288,12 @@ impl Safe {
             Box::new(ZERO_ADDRESS.to_string())
         };
 
-        let estimation = RelayerModule::get_estimate_fee(&ArgsGetEstimateFee{
+        let estimation = RelayerModule::get_estimate_fee(&ArgsGetEstimateFee {
             chain_id: self.chain_id,
             gas_limit: options.gas_limit,
             gas_token: Some(*gas_token.clone()),
-        }).unwrap();
+        })
+        .unwrap();
 
         let base_gas = if is_sponsored {
             BigInt::from(0)
@@ -301,7 +310,7 @@ impl Safe {
         let refund_receiver = if is_sponsored {
             ZERO_ADDRESS.to_string()
         } else {
-            RelayerModule::get_fee_collector(&ArgsGetFeeCollector{}).unwrap()
+            RelayerModule::get_fee_collector(&ArgsGetFeeCollector {}).unwrap()
         };
 
         SafeContractsSafeTransaction {

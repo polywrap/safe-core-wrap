@@ -11,7 +11,7 @@ const connection = {
   networkNameOrChainId: "goerli",
 };
 
-const saltNonce = "0x474447"
+const saltNonce = "0x258802387238728372837283726"
 
 describe("Paid transaction AA wrapper", () => {
   const dirname: string = path.resolve(__dirname);
@@ -19,7 +19,7 @@ describe("Paid transaction AA wrapper", () => {
   const accountAbstractionWrapperFsUri = `fs/${wrapperPath}/build`;
 
   const accountAbstractionWrapperUri = "wrap://wrapper/account-abstraction";
-  const etherUtilsWrapperUri = "wrap://ens/wraps.eth:ethereum-utils@0.0.1";
+  const etherUtilsWrapperUri = "wrap://ens/ethers.wraps.eth:utils@0.1.0";
   const etherCoreWrapperUri = "wrap://ens/wraps.eth:ethereum@2.0.0";
   const relayerAdapterWrapperUri =
     "wrap://ens/account-abstraction.wraps.eth:relayer-adapter@0.0.1";
@@ -55,10 +55,21 @@ describe("Paid transaction AA wrapper", () => {
       operation: "0",
     };
 
+    const gasLimit = await App.EtherCore_Module.estimateTransactionGas({
+      tx: {
+        to: metaTransactionData.to,
+        value: metaTransactionData.value,
+        data: metaTransactionData.data
+      }
+    }, client, etherCoreWrapperUri)
+    if (!gasLimit.ok) throw gasLimit.error;
+
+    const gaslimitWithBuffer = BigNumber.from(gasLimit.value).add(150_000).toString()
+
     const estimation = await App.Relayer_Module.getEstimateFee(
       {
         chainId: 5,
-        gasLimit: "250000",
+        gasLimit: gaslimitWithBuffer,
       },
       client,
       relayerAdapterWrapperUri
@@ -121,7 +132,7 @@ describe("Paid transaction AA wrapper", () => {
       console.log("Safe funded");
     }
     const metaTransactionOptions = {
-      gasLimit: "250000",
+      gasLimit: gaslimitWithBuffer,
     };
 
     console.log("Relaying paid transaction...")
