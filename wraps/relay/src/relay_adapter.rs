@@ -13,7 +13,7 @@ use crate::{
 
 const GELATO_NATIVE_TOKEN_ADDRESS: &str = "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE";
 const GELATO_FEE_COLLECTOR: &str = "0x3AC05161b76a35c1c28dC99Aa01BEd7B24cEA3bf";
-const GELATO_RELAY_URL: &str = "https://relay.gelato.digital";
+const GELATO_RELAY_URL: &str = "https://api.gelato.digital";
 const ZERO_ADDRESS: &str = "0x0000000000000000000000000000000000000000";
 
 pub trait RelayAdapter {
