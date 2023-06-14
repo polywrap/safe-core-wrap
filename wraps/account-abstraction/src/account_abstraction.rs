@@ -3,7 +3,7 @@ use std::collections::BTreeMap;
 
 use crate::{
     imported::{
-        ether_core_module::serialization::ArgsGetChainId,
+        ethers_module::serialization::ArgsGetChainId,
         relayer_meta_transaction_options::RelayerMetaTransactionOptions,
         relayer_module::serialization::ArgsRelayTransaction,
         relayer_relay_transaction::RelayerRelayTransaction,
@@ -19,7 +19,7 @@ use crate::{
         ArgsGetFeeCollector, ArgsGetSafeContractNetworks, ArgsGetSignerAddress, ArgsSafeIsDeployed,
         SafeFactoryDeploymentInput, SafeFactorySafeDeploymentConfig,
     },
-    DeploymentParameters, EtherCoreConnection, EtherCoreModule, MetaTransactionData,
+    DeploymentParameters, EthersConnection, MetaTransactionData, EthersModule,
     MetaTransactionOptions, RelayerModule, SafeContractsModule, SafeContractsSafeTransaction,
     SafeContractsSafeTransactionData, SafeContractsSignSignature, SafeFactoryModule,
     SafeManagerModule, SafeManagerSafeTransaction, SafeManagerSafeTransactionData,
@@ -46,7 +46,7 @@ pub struct Safe {
     chain_id: i32,
     address: String,
     factory_address: String,
-    connection: EtherCoreConnection,
+    connection: EthersConnection,
     multi_send_call_only_address: String,
     deployment_info: SafeFactoryDeploymentInput,
 }
@@ -133,18 +133,18 @@ impl AccountAbstraction for Safe {
 }
 
 impl Safe {
-    pub fn new(connection: EtherCoreConnection, params: Option<DeploymentParameters>) -> Self {
+    pub fn new(connection: EthersConnection, params: Option<DeploymentParameters>) -> Self {
         let factory_connection = safe_factory_ethereum_connection::SafeFactoryEthereumConnection {
             node: connection.clone().node,
             network_name_or_chain_id: connection.clone().network_name_or_chain_id,
         };
 
-        let chain_id = EtherCoreModule::get_chain_id(&ArgsGetChainId {
+        let chain_id = EthersModule::get_chain_id(&ArgsGetChainId {
             connection: Some(connection.clone()),
         })
         .unwrap();
 
-        let signer = EtherCoreModule::get_signer_address(&ArgsGetSignerAddress {
+        let signer = EthersModule::get_signer_address(&ArgsGetSignerAddress {
             connection: Some(connection.clone()),
         })
         .unwrap();

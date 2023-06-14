@@ -1,4 +1,4 @@
-import * into AccountAbstraction from "wrap://wrapper/account-abstraction"
-import { Module } into EthersUtils from "wrap://ens/ethers.wraps.eth:utils@0.1.0"
-import { Module, Connection } into EtherCore from "wrap://ens/wraps.eth:ethereum@2.0.0"
-import { Module } into Relayer from "wrap://ens/account-abstraction.wraps.eth:relayer-adapter@0.0.1"
+import * into AccountAbstraction from  "wrap://ens/aa.wraps.eth:core@0.0.1"
+import { Module } into EthersUtils from "wrap://ens/ethers.wraps.eth:utils@0.1.1"
+import { Module, Connection } into Ethers from "wrap://ens/ethers.wraps.eth:0.1.0"
+import { Module } into Relayer from "wrap://ens/aa.wraps.eth:relayer-adapter@0.0.1"

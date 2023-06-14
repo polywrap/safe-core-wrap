@@ -38,7 +38,7 @@ export function configure(builder: IClientConfigBuilder): IClientConfigBuilder {
             },
             defaultNetwork: "goerli"
           }),
-        }) as IWrapPackage,
+        }),
         "wrap://ens/datetime.polywrap.eth": dateTimePlugin({}) as IWrapPackage,
       })
       .addEnv("wrap://wrapper/account-abstraction", {
@@ -46,22 +46,13 @@ export function configure(builder: IClientConfigBuilder): IClientConfigBuilder {
           networkNameOrChainId: "goerli",
         },
       })
-      // @TODO(cbrzn): Remove this once the ENS text record content hash has been updated
       .addRedirect(
-        "wrap://ens/wraps.eth:ethereum@2.0.0",
-        "wrap://ipfs/QmUX4nafTqncmtucMSJGKVNB6WbEaRJLWJHMVMcZy751S9"
-      )
-      .addRedirect(
-        "wrap://ens/account-abstraction.wraps.eth:relayer-adapter@0.0.1",
+        "wrap://ens/aa.wraps.eth:relayer-adapter@0.0.1",
         "wrap://fs/../relay/build"
       )
       .addRedirect(
         "wrap://ens/gelato.wraps.eth:relayer@0.0.1",
         "wrap://fs/../../../../polywrap/gelato-relay-polywrap/build"
-      )
-      .addInterfaceImplementation(
-        "wrap://ens/wraps.eth:ethereum-provider@2.0.0",
-        "wrap://ens/wraps.eth:ethereum-provider@2.0.0"
       )
   );
 }

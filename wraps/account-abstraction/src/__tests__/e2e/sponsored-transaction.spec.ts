@@ -4,6 +4,12 @@ import path from "path";
 import { configure } from "../../../client-config";
 import { EthersUtils_Module } from "../types/wrap";
 import { BigNumber } from "ethers";
+import {
+  accountAbstractionWrapperUri,
+  etherCoreWrapperUri,
+  etherUtilsWrapperUri,
+  relayerAdapterWrapperUri,
+} from "./constants";
 
 jest.setTimeout(60000);
 
@@ -11,18 +17,10 @@ const connection = {
   networkNameOrChainId: "goerli",
 };
 
-const saltNonce = "0x258802387238728372837283726"
-
 describe("Sponsored transaction AA wrapper", () => {
   const dirname: string = path.resolve(__dirname);
   const wrapperPath: string = path.join(dirname, "..", "..", "..");
   const accountAbstractionWrapperFsUri = `fs/${wrapperPath}/build`;
-
-  const accountAbstractionWrapperUri = "wrap://wrapper/account-abstraction";
-  const etherUtilsWrapperUri = "wrap://ens/ethers.wraps.eth:utils@0.1.0";
-  const etherCoreWrapperUri = "wrap://ens/wraps.eth:ethereum@2.0.0";
-  const relayerAdapterWrapperUri =
-    "wrap://ens/account-abstraction.wraps.eth:relayer-adapter@0.0.1";
 
   const builder = new ClientConfigBuilder();
   const configuredBuilder = configure(builder);
@@ -55,16 +53,22 @@ describe("Sponsored transaction AA wrapper", () => {
       operation: "0",
     };
 
-    const gasLimit = await App.EtherCore_Module.estimateTransactionGas({
-      tx: {
-        to: metaTransactionData.to,
-        value: metaTransactionData.value,
-        data: metaTransactionData.data
-      }
-    }, client, etherCoreWrapperUri)
+    const gasLimit = await App.Ethers_Module.estimateTransactionGas(
+      {
+        tx: {
+          to: metaTransactionData.to,
+          value: metaTransactionData.value,
+          data: metaTransactionData.data,
+        },
+      },
+      client,
+      etherCoreWrapperUri
+    );
     if (!gasLimit.ok) throw gasLimit.error;
 
-    const gaslimitWithBuffer = BigNumber.from(gasLimit.value).add(250_000).toString()
+    const gaslimitWithBuffer = BigNumber.from(gasLimit.value)
+      .add(250_000)
+      .toString();
     const estimation = await App.Relayer_Module.getEstimateFee(
       {
         chainId: 5,
@@ -79,14 +83,14 @@ describe("Sponsored transaction AA wrapper", () => {
       {
         config: {
           // saltNonce
-        }
+        },
       },
       client,
       accountAbstractionWrapperUri
     );
     if (!safeAddress.ok) throw safeAddress.error;
     console.log("Predicted safe address: ", safeAddress.value);
-    const safeBalance = await App.EtherCore_Module.getBalance(
+    const safeBalance = await App.Ethers_Module.getBalance(
       {
         address: safeAddress.value,
         connection,
@@ -96,33 +100,39 @@ describe("Sponsored transaction AA wrapper", () => {
     );
     if (!safeBalance.ok) throw safeBalance.error;
 
-    const estimationInEth = await App.EtherCore_Module.toEth({
-      wei: estimation.value
-    }, client, etherCoreWrapperUri);
+    const estimationInEth = await App.EthersUtils_Module.toEth(
+      {
+        wei: estimation.value,
+      },
+      client,
+      etherUtilsWrapperUri
+    );
     if (!estimationInEth.ok) throw estimationInEth.error;
     console.log(`Fee estimation: ${estimationInEth.value} ETH`);
 
     const metaTransactionOptions = {
       gasLimit: gaslimitWithBuffer,
-      isSponsored: true
+      isSponsored: true,
     };
 
-    console.log("Relaying sponsored transaction...")
+    console.log("Relaying sponsored transaction...");
     const result = await App.AccountAbstraction_Module.relayTransaction(
       {
         transaction: metaTransactionData,
         options: metaTransactionOptions,
         config: {
           // saltNonce
-        }
+        },
       },
       client,
       accountAbstractionWrapperUri
     );
     expect(result.ok).toBeTruthy();
     if (!result.ok) fail(result.error);
-    console.log("Transaction has been relayed...")
-    console.log(`Task URL: https://relay.gelato.digital/tasks/status/${result.value}`)
+    console.log("Transaction has been relayed...");
+    console.log(
+      `Task URL: https://relay.gelato.digital/tasks/status/${result.value}`
+    );
     expect(result.value).toBeTruthy();
   });
 });
