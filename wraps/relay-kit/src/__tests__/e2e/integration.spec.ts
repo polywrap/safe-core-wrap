@@ -1,19 +1,31 @@
-import { PolywrapClient, ClientConfigBuilder } from "@polywrap/client-js";
+import {
+  PolywrapClient,
+  PolywrapClientConfigBuilder,
+} from "@polywrap/client-js";
 import * as App from "../types/wrap";
 import path from "path";
-import { configure } from "../../../client-config";
+import { config } from "dotenv";
+
+config();
 
 jest.setTimeout(60000);
 
-describe("Relayer wrapper", () => {
-  const client: PolywrapClient = new PolywrapClient(
-    configure(new ClientConfigBuilder()).build()
-  );
+describe("Relayer Kit Wrap", () => {
+  const wrapUri = "wrapscan.io/polywrap/relay-kit@0.1.0";
   const dirname: string = path.resolve(__dirname);
   const wrapperPath: string = path.join(dirname, "..", "..", "..");
-  const wrapperUri = `fs/${wrapperPath}/build`;
+  const client: PolywrapClient = new PolywrapClient(
+    new PolywrapClientConfigBuilder()
+      .addDefaults()
+      .setRedirect(wrapUri, `fs/${wrapperPath}/build`)
+      .build()
+  );
 
   it("calls relay transaction", async () => {
+    if (!process.env.RELAYER_API_KEY) {
+      throw Error("Relayer API Key not defined in .env");
+    }
+
     const feeToken = "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE";
 
     const options = {
@@ -29,10 +41,15 @@ describe("Relayer wrapper", () => {
       chainId: 5,
       options,
     };
-    const result = await App.Relayer_Module.relayTransaction(
+
+    const relayer = new App.Relayer();
+    const result = await relayer.relayTransaction(
       { transaction },
       client,
-      wrapperUri
+      {
+        relayerApiKey: "AiaCshYRyAUzTNfZZb8LftJaAl2SS3I8YwhJJXc5J7A_",
+      },
+      wrapUri
     );
 
     expect(result.ok).toBeTruthy();

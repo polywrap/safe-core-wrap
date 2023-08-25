@@ -1,3 +1,4 @@
+use polywrap_msgpack_serde::BigIntWrapper;
 use polywrap_wasm_rs::BigInt;
 
 use crate::{
@@ -8,12 +9,11 @@ use crate::{
     },
     meta_transaction_options::MetaTransactionOptions,
     wrap::GelatoRelayerRelayResponse,
-    Env, GelatoRelayerModule, RelayResponse, RelayTransaction, GelatoRelayerRelayRequestOptions,
+    Env, GelatoRelayerModule, GelatoRelayerRelayRequestOptions, RelayResponse, RelayTransaction,
 };
 
 const GELATO_NATIVE_TOKEN_ADDRESS: &str = "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE";
 const GELATO_FEE_COLLECTOR: &str = "0x3AC05161b76a35c1c28dC99Aa01BEd7B24cEA3bf";
-const GELATO_RELAY_URL: &str = "https://api.gelato.digital";
 const ZERO_ADDRESS: &str = "0x0000000000000000000000000000000000000000";
 
 pub trait RelayAdapter {
@@ -28,13 +28,14 @@ impl RelayAdapter for GelatoRelayer {
     fn get_estimate_fee(chain_id: u64, gas_limit: u64, gas_token: Option<String>) -> BigInt {
         let fee_token = GelatoRelayer::get_fee_token(gas_token);
         GelatoRelayerModule::get_estimated_fee(&ArgsGetEstimatedFee {
-            chain_id: BigInt::from(chain_id),
-            gas_limit: BigInt::from(gas_limit),
+            chain_id: BigIntWrapper(BigInt::from(chain_id)),
+            gas_limit: BigIntWrapper(BigInt::from(gas_limit)),
             payment_token: fee_token,
             is_high_priority: true,
             gas_limit_l1: None,
         })
         .unwrap()
+        .0
     }
 
     fn get_fee_collector() -> String {
@@ -97,7 +98,7 @@ impl GelatoRelayer {
     ) -> RelayResponse {
         GelatoRelayerModule::sponsored_call(&ArgsSponsoredCall {
             request: GelatoRelayerSponsoredCallRequest {
-                chain_id: chain_id.into(),
+                chain_id: BigIntWrapper(chain_id.into()),
                 target,
                 data: encoded_transaction,
             },
@@ -118,14 +119,14 @@ impl GelatoRelayer {
         GelatoRelayerModule::call_with_sync_fee(&ArgsCallWithSyncFee {
             request: GelatoRelayerCallWithSyncFeeRequest {
                 target,
-                chain_id: chain_id.into(),
+                chain_id: BigIntWrapper(chain_id.into()),
                 data: encoded_transaction,
                 fee_token,
                 is_relay_context: Some(false),
             },
             options: Some(GelatoRelayerRelayRequestOptions {
                 gas_limit: Some(options.gas_limit),
-                retries: None
+                retries: None,
             }),
         })
         .unwrap()

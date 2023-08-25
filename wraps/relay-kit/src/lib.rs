@@ -1,5 +1,5 @@
 pub mod wrap;
-use polywrap_wasm_rs::BigInt;
+use polywrap_msgpack_serde::BigIntWrapper;
 pub use wrap::*;
 
 use relay_adapter::{GelatoRelayer, RelayAdapter};
@@ -13,15 +13,15 @@ impl ModuleTrait for Module {
         Ok(GelatoRelayer::relay_transaction(args.transaction, env))
     }
 
-    fn get_estimate_fee(args: ArgsGetEstimateFee) -> Result<BigInt, String> {
+    fn get_estimate_fee(args: ArgsGetEstimateFee) -> Result<BigIntWrapper, String> {
         let chain_id = u64::from_str_radix(args.chain_id.to_string().as_str(), 10).unwrap();
-        let gas_limit = u64::from_str_radix(args.gas_limit.to_string().as_str(), 10).unwrap();
+        let gas_limit = u64::from_str_radix(args.gas_limit.0.to_string().as_str(), 10).unwrap();
 
-        Ok(GelatoRelayer::get_estimate_fee(
+        Ok(BigIntWrapper(GelatoRelayer::get_estimate_fee(
             chain_id,
             gas_limit,
             args.gas_token,
-        ))
+        )))
     }
 
     fn get_fee_collector(_: ArgsGetFeeCollector) -> Result<String, String> {

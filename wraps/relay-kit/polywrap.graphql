@@ -1,7 +1,8 @@
 """
-import { MetaTransactionOptions } from "../../common/schema.graphql"
-import { Module } into GelatoRelayer from "wrap://ens/gelato.wraps.eth:relayer@0.0.1"
+import { MetaTransactionOptions } from "../common/polywrap.graphql"
+import { Module } into GelatoRelayer from "wrapscan.io/polywrap/gelato-relay@0.1.1"
 """
+
 type Env {
     relayerApiKey: String!
 }
