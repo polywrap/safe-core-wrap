@@ -1,0 +1,9 @@
+format: 0.5.0
+project:
+  name: protocol-kit-wrap
+  type: wasm/assemblyscript
+source:
+  module: ./src/index.ts
+  schema: ./polywrap.graphql
+extensions:
+  docs: ./polywrap.docs.yaml
