@@ -6,4 +6,4 @@ source:
   schema: ./schema.graphql
   import_abis:
     - uri: "wrapscan.io/polywrap/relay-kit@0.1.0"
-      abi: "../../../build/wrap.info"
+      abi: "../build/wrap.info"

@@ -5,7 +5,7 @@
   "scripts": {
     "build": "polywrap build",
     "deploy": "polywrap deploy",
-    "pretest": "polywrap codegen -m src/__tests__/types/polywrap.yaml -g ./src/__tests__/types/wrap",
+    "pretest": "polywrap codegen -m tests/polywrap.app.yaml -g ./tests/wrap",
     "test": "jest --runInBand --verbose"
   },
   "devDependencies": {

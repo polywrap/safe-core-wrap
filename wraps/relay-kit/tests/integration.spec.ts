@@ -2,7 +2,7 @@ import {
   PolywrapClient,
   PolywrapClientConfigBuilder,
 } from "@polywrap/client-js";
-import * as App from "../types/wrap";
+import * as App from "./wrap";
 import path from "path";
 import { config } from "dotenv";
 
@@ -13,7 +13,7 @@ jest.setTimeout(60000);
 describe("Relayer Kit Wrap", () => {
   const wrapUri = "wrapscan.io/polywrap/relay-kit@0.1.0";
   const dirname: string = path.resolve(__dirname);
-  const wrapperPath: string = path.join(dirname, "..", "..", "..");
+  const wrapperPath: string = path.join(dirname, "..");
   const client: PolywrapClient = new PolywrapClient(
     new PolywrapClientConfigBuilder()
       .addDefaults()
