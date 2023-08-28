@@ -2,17 +2,70 @@ import { BigInt, Box } from "@polywrap/wasm-as";
 import {
   SafeSignature,
   SafeTransactionData,
-  SafeTransactionDataPartial,
   OperationType,
+  Ethers_Module,
+  Args_getThreshold,
+  Args_getOwners,
+  Args_isOwner,
+  Args_getTransactionHash,
+  Env,
+  Args_signTransactionHash,
+  SafeTransactionDataPartial,
 } from "../wrap";
 import { ZERO_ADDRESS } from "../constants";
+import { JSON } from "assemblyscript-json";
+import { adjustVInSignature, arrayify } from "../utils/signature";
+
+export function signTransactionHash(
+  args: Args_signTransactionHash,
+  env: Env
+): SafeSignature {
+  const signer = Ethers_Module.getSignerAddress({
+    connection: env.connection,
+  }).unwrap();
+
+  const byteArray = arrayify(args.hash).buffer;
+
+  const signature = Ethers_Module.signMessageBytes({
+    bytes: byteArray,
+    connection: {
+      node: env.connection.node,
+      networkNameOrChainId: env.connection.networkNameOrChainId,
+    },
+  }).unwrap();
+
+  const adjustedSignature = adjustVInSignature(
+    "eth_sign",
+    signature,
+    args.hash,
+    signer
+  );
+
+  return { signer: signer, data: adjustedSignature };
+}
+export function getTransactionHash(
+  args: Args_getTransactionHash,
+  env: Env
+): string {
+  const contractArgs = getTransactionHashArgs(args.tx);
+
+  const res = Ethers_Module.callContractView({
+    address: env.safeAddress,
+    method:
+      "function getTransactionHash(address to, uint256 value, bytes data, uint8 operation, uint256 safeTxGas, uint256 baseGas, uint256 gasPrice, address gasToken, address refundReceiver, uint256 _nonce) public view returns (bytes32)",
+    args: contractArgs,
+    connection: env.connection,
+  }).unwrap();
+
+  return res;
+}
 
 export function getTransactionHashArgs(tx: SafeTransactionData): string[] {
   return [
     tx.to,
     tx.value.toString(),
     tx.data,
-    tx.operation!.toString(),
+    tx.operation!.unwrap().toString(),
     tx.safeTxGas!.toString(),
     tx.baseGas!.toString(),
     tx.gasPrice!.toString(),
@@ -23,8 +76,7 @@ export function getTransactionHashArgs(tx: SafeTransactionData): string[] {
 }
 
 export function createTransactionFromPartial(
-  transactionData: SafeTransactionData,
-  options: SafeTransactionDataPartial | null
+  transactionData: SafeTransactionDataPartial
 ): SafeTransactionData {
   let transaction: SafeTransactionData = {
     data: transactionData.data,
@@ -34,7 +86,7 @@ export function createTransactionFromPartial(
     gasPrice: BigInt.from("0"),
     safeTxGas: BigInt.from("0"),
     gasToken: ZERO_ADDRESS,
-    nonce: BigInt.from("0"),
+    nonce: 0,
     operation: Box.from(OperationType.Call),
     refundReceiver: ZERO_ADDRESS,
   };
@@ -46,44 +98,30 @@ export function createTransactionFromPartial(
 
   if (transactionData.baseGas) {
     transaction.baseGas = transactionData.baseGas!;
-  } else if (options != null && options.baseGas) {
-    transaction.baseGas = options.baseGas;
   }
 
   if (transactionData.gasPrice) {
     transaction.gasPrice = transactionData.gasPrice!;
-  } else if (options != null && options.gasPrice) {
-    transaction.gasPrice = options.gasPrice;
   }
 
   if (transactionData.safeTxGas) {
     transaction.safeTxGas = transactionData.safeTxGas!;
-  } else if (options != null && options.safeTxGas) {
-    transaction.safeTxGas = options.safeTxGas;
   }
 
   if (transactionData.gasToken != null) {
     transaction.gasToken = transactionData.gasToken!;
-  } else if (options != null && options.gasToken) {
-    transaction.gasToken = options.gasToken;
   }
 
   if (transactionData.nonce) {
-    transaction.nonce = transactionData.nonce!;
-  } else if (options != null && options.nonce) {
-    transaction.nonce = options.nonce;
+    transaction.nonce = transactionData.nonce!.unwrap();
   }
 
   if (transactionData.operation) {
     transaction.operation = transactionData.operation!; // 0 is Call, 1 is DelegateCall
-  } else if (options != null && options.operation) {
-    transaction.operation = options.operation;
   }
 
   if (transactionData.refundReceiver != null) {
     transaction.refundReceiver = transactionData.refundReceiver!;
-  } else if (options != null && options.refundReceiver != null) {
-    transaction.refundReceiver = options.refundReceiver;
   }
 
   return transaction;
@@ -104,4 +142,52 @@ export function encodeSignatures(
   }
 
   return "0x" + staticParts + dynamicParts;
+}
+
+export function getThreshold(args: Args_getThreshold): u32 {
+  const resp = Ethers_Module.callContractView({
+    address: args.safeAddress,
+    method: "function getThreshold() public view returns (uint256)",
+    args: null,
+    connection: args.connection,
+  }).unwrap();
+  return u32(parseInt(resp, 10));
+}
+
+export function getOwners(args: Args_getOwners): string[] {
+  const resp = Ethers_Module.callContractView({
+    address: args.safeAddress,
+    method: "function getOwners() public view returns (address[] memory)",
+    args: null,
+    connection: args.connection,
+  }).unwrap();
+
+  const v = JSON.parse(resp);
+  if (!v.isArr) {
+    throw new Error("ethereum value is not array: " + v.stringify());
+  }
+  const arr = (v as JSON.Arr).valueOf();
+  const result: string[] = [];
+  for (let i = 0; i < arr.length; i++) {
+    let s = arr[i];
+    if (!s.isString) {
+      throw new Error("ethereum value element is not string: " + s.stringify());
+    }
+    result.push((s as JSON.Str).valueOf());
+  }
+  return result;
+}
+
+export function isOwner(args: Args_isOwner): boolean {
+  const resp = Ethers_Module.callContractView({
+    address: args.safeAddress,
+    method: "function isOwner(address owner) public view returns (bool)",
+    args: [args.ownerAddress],
+    connection: args.connection,
+  }).unwrap();
+  if (resp == "true") {
+    return true;
+  } else {
+    return false;
+  }
 }

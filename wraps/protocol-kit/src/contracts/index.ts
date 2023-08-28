@@ -1,4 +1,9 @@
-import { Args_getSafeContractNetworks, ContractNetworksConfig } from "../wrap";
+import {
+  Args_getSafeContractNetworks,
+  Args_getVersion,
+  ContractNetworksConfig,
+  Ethers_Module,
+} from "../wrap";
 import {
   getFallbackHandlerCompabilityMap,
   getMultisendCallOnlyContractMap,
@@ -6,6 +11,8 @@ import {
   getSafeContractMap,
   getSafeFactoryContractMap,
 } from "./addresses";
+
+export * from "./utils";
 
 export function getSafeContractAddress(
   safeVersion: string,
@@ -86,7 +93,7 @@ export function getSafeContractNetworks(
 ): ContractNetworksConfig {
   const safeContractVersion = args.version;
   const chainId = args.chainId;
-  const isL1Safe: bool =
+  const isL1Safe: boolean =
     args.isL1Safe != null ? args.isL1Safe!.unwrap() : false;
 
   if (args.filter == null) {
@@ -152,4 +159,15 @@ export function getSafeContractNetworks(
     }
     return safeContractNetworks;
   }
+}
+
+export function getVersion(args: Args_getVersion): string {
+  const version = Ethers_Module.callContractView({
+    address: args.address,
+    method: "function VERSION() public view returns (string)",
+    args: [],
+    connection: args.connection,
+  }).unwrap();
+
+  return version;
 }

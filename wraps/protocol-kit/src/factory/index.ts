@@ -155,4 +155,23 @@ export class SafeFactory {
 
     return derivedAddress.unwrap();
   }
+
+  public encodeDeploySafe(): string {
+    const payload = prepareSafeDeployPayload(
+      this.deploymentInput.safeAccountConfig,
+      this.deploymentInput.safeDeploymentConfig,
+      this.deploymentInput.customContractAddresses,
+      this.deploymentInput.connection
+    );
+
+    return Ethers_Module.encodeFunction({
+      method: "function createProxyWithNonce(address,bytes memory,uint256)",
+      args: [
+        payload.safeContractAddress,
+        payload.initializer,
+        // @TODO(cbrzn): This should accept salt nonce as string
+        BigInt.fromString(payload.saltNonce).toString(),
+      ],
+    }).unwrap();
+  }
 }

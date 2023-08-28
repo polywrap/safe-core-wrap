@@ -19,13 +19,18 @@ describe("Safe Factory", () => {
 
   beforeAll(async () => {
     await initInfra();
-    const client = await getClient();
+    const client = getClient();
+
     contracts = await setUpContracts(client);
     safe = new App.Safe(client);
   });
 
+  afterAll(async () => {
+    await stopInfra();
+  });
+
   describe("Deployment with custom contracts addresses", () => {
-    it("Should deploy a new safe without giving salt", async () => {
+    it("Should deploy a new safe and predict address with default salt", async () => {
       const deploymentResponse = await safe.deploySafe({
         input: {
           safeAccountConfig: {
@@ -48,15 +53,15 @@ describe("Safe Factory", () => {
       expect(deploymentResponse.value).toMatch("0x");
     });
 
-    it("Should deploy a new safe with given salt", async () => {
-      const deploymentResponse = await safe.deploySafe({
+    it("Should deploy a new safe and predict address with given salt", async () => {
+      const deploymentInput = {
         input: {
           safeAccountConfig: {
             owners: ["0xd405aebF7b60eD2cb2Ac4497Bddd292DEe534E82"],
             threshold: 1,
           },
           safeDeploymentConfig: {
-            saltNonce: Date.now().toString(),
+            saltNonce: "3074",
           },
           connection: CONNECTION,
           customContractAddresses: {
@@ -64,14 +69,17 @@ describe("Safe Factory", () => {
             proxyFactoryContract: contracts.FACTORY![safeVersion],
           },
         },
-      });
+      };
 
-      if (!deploymentResponse.ok) {
-        fail(deploymentResponse.error);
-      }
+      const predictSafeResp = await safe.predictSafeAddress(deploymentInput);
+      if (!predictSafeResp.ok) throw predictSafeResp.error;
+      expect(predictSafeResp.value).not.toBeNull();
 
-      expect(deploymentResponse.ok).toBeTruthy();
-      expect(deploymentResponse.value).toMatch("0x");
+      const deploySafeResp = await safe.deploySafe(deploymentInput);
+      if (!deploySafeResp.ok) throw deploySafeResp.error;
+      expect(deploySafeResp.value).not.toBeNull();
+
+      expect(predictSafeResp.value).toEqual(deploySafeResp.value);
     });
 
     it("Should fail if there are no owners", async () => {
@@ -137,7 +145,7 @@ describe("Safe Factory", () => {
       expect(deploySafeResponse.ok).toEqual(false);
       if (!deploySafeResponse.ok) {
         expect(deploySafeResponse.error?.toString()).toMatch(
-          "Threshold must be lower than or equal to owners length"
+          "Threshold cannot exceed owner count"
         );
       }
     });
@@ -169,13 +177,13 @@ describe("Safe Factory", () => {
     });
   });
 
-  describe.only("Prediction of safe address", () => {
-    it("Should predict a new safe", async () => {
+  describe("Prediction of safe address", () => {
+    it("Should fail if the threshold is lower than 0", async () => {
       const deploymentInput = {
         input: {
           safeAccountConfig: {
             owners: ["0xd405aebF7b60eD2cb2Ac4497Bddd292DEe534E82"],
-            threshold: 1,
+            threshold: -1,
           },
           connection: CONNECTION,
           customContractAddresses: {
@@ -186,18 +194,66 @@ describe("Safe Factory", () => {
       };
 
       const predictSafeResp = await safe.predictSafeAddress(deploymentInput);
-      if (!predictSafeResp.ok) throw predictSafeResp.error;
-      expect(predictSafeResp.value).not.toBeNull();
 
-      const deploySafeResp = await safe.deploySafe(deploymentInput);
-      if (!deploySafeResp.ok) throw deploySafeResp.error;
-      expect(deploySafeResp.value).not.toBeNull();
-
-      expect(predictSafeResp.value).toEqual(deploySafeResp.value);
+      expect(predictSafeResp.ok).toEqual(false);
+      if (!predictSafeResp.ok) {
+        expect(predictSafeResp.error?.toString()).toMatch(
+          "unsigned integer cannot be negative"
+        );
+      }
     });
-  });
 
-  afterAll(async () => {
-    await stopInfra();
+    it("Should fail if the threshold is higher than the owners", async () => {
+      const deploymentInput = {
+        input: {
+          safeAccountConfig: {
+            owners: ["0xd405aebF7b60eD2cb2Ac4497Bddd292DEe534E82"],
+            threshold: 2,
+          },
+          connection: CONNECTION,
+          customContractAddresses: {
+            safeFactoryContract: contracts.SAFE![safeVersion],
+            proxyFactoryContract: contracts.FACTORY![safeVersion],
+          },
+        },
+      };
+
+      const predictSafeResp = await safe.predictSafeAddress(deploymentInput);
+
+      expect(predictSafeResp.ok).toEqual(false);
+      if (!predictSafeResp.ok) {
+        expect(predictSafeResp.error?.toString()).toMatch(
+          "Threshold cannot exceed owner count"
+        );
+      }
+    });
+
+    it("Should fail if the saltNonce is lower than 0", async () => {
+      const deploymentInput = {
+        input: {
+          safeAccountConfig: {
+            owners: ["0xd405aebF7b60eD2cb2Ac4497Bddd292DEe534E82"],
+            threshold: 1,
+          },
+          safeDeploymentConfig: {
+            saltNonce: "-2",
+          },
+          connection: CONNECTION,
+          customContractAddresses: {
+            safeFactoryContract: contracts.SAFE![safeVersion],
+            proxyFactoryContract: contracts.FACTORY![safeVersion],
+          },
+        },
+      };
+
+      const predictSafeResp = await safe.predictSafeAddress(deploymentInput);
+
+      expect(predictSafeResp.ok).toEqual(false);
+      if (!predictSafeResp.ok) {
+        expect(predictSafeResp.error?.toString()).toMatch(
+          "saltNonce must be greater than or equal to 0"
+        );
+      }
+    });
   });
 });

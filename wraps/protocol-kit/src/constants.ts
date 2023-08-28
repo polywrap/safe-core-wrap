@@ -6,6 +6,4 @@ export const EMPTY_DATA = "0x";
 // export const PREDETERMINED_SALT_NONCE =
 //   "0xb1073742015cbcf5a3a4d9d1ae33ecf619439710b89475f92e2abd2117e90f90";
 
-
-
-export const PREDETERMINED_SALT_NONCE = "0x42"
+export const PREDETERMINED_SALT_NONCE = "0x42";

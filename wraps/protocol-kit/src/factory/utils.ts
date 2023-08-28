@@ -5,6 +5,7 @@ import {
   ZERO_ADDRESS,
 } from "../constants";
 import { getSafeContractNetworks } from "../contracts";
+import { validateThreshold } from "../utils/validation";
 import {
   Ethers_Connection,
   Ethers_Module,
@@ -13,7 +14,7 @@ import {
   CustomContract,
   DeploymentPayload,
 } from "../wrap";
-import { BigInt, Result, JSON, Box, wrap_debug_log } from "@polywrap/wasm-as";
+import { BigInt, Result, JSON, Box } from "@polywrap/wasm-as";
 
 export const validateSafeAccountConfig = (config: SafeAccountConfig): void => {
   if (config.owners.length <= 0)
@@ -22,10 +23,7 @@ export const validateSafeAccountConfig = (config: SafeAccountConfig): void => {
   const threshold = config.threshold;
 
   if (threshold) {
-    if (threshold <= 0)
-      throw new Error("Threshold must be greater than or equal to 1");
-    if (threshold > <u32>config.owners.length)
-      throw new Error("Threshold must be lower than or equal to owners length");
+    validateThreshold(threshold, config.owners.length);
   }
 };
 
@@ -194,51 +192,33 @@ export function prepareSafeDeployPayload(
     }
   }
 
-  if (safeContractAddress == "") {
+  if (
+    safeContractAddress == "" ||
+    safeFactoryContractAddress == "" ||
+    safeAccountConfig.fallbackHandler == null
+  ) {
     const contracts = getSafeContractNetworks({
       version: safeContractVersion,
       chainId: chainId.toString(),
       isL1Safe: Box.from(isL1Safe),
       filter: {
-        safeMasterCopyAddress: true,
-        safeProxyFactoryAddress: false,
+        safeMasterCopyAddress: safeContractAddress == "",
+        safeProxyFactoryAddress: safeFactoryContractAddress == "",
         multiSendAddress: false,
         multiSendCallOnlyAddress: false,
-        fallbackHandlerAddress: false,
+        fallbackHandlerAddress: safeAccountConfig.fallbackHandler == null,
       },
     });
-    safeContractAddress = contracts.safeMasterCopyAddress!;
-  }
 
-  if (safeFactoryContractAddress == "") {
-    const contracts = getSafeContractNetworks({
-      version: safeContractVersion,
-      chainId: chainId.toString(),
-      isL1Safe: Box.from(isL1Safe),
-      filter: {
-        safeMasterCopyAddress: false,
-        safeProxyFactoryAddress: true,
-        multiSendAddress: false,
-        multiSendCallOnlyAddress: false,
-        fallbackHandlerAddress: false,
-      },
-    });
-    safeFactoryContractAddress = contracts.safeProxyFactoryAddress!;
-  }
-  if (safeAccountConfig.fallbackHandler == null) {
-    const contracts = getSafeContractNetworks({
-      version: safeContractVersion,
-      chainId: chainId.toString(),
-      isL1Safe: Box.from(isL1Safe),
-      filter: {
-        safeMasterCopyAddress: false,
-        safeProxyFactoryAddress: false,
-        multiSendAddress: false,
-        multiSendCallOnlyAddress: false,
-        fallbackHandlerAddress: true,
-      },
-    });
-    safeAccountConfig.fallbackHandler = contracts.fallbackHandlerAddress;
+    if (contracts.safeMasterCopyAddress) {
+      safeContractAddress = contracts.safeMasterCopyAddress!;
+    }
+    if (contracts.safeProxyFactoryAddress) {
+      safeFactoryContractAddress = contracts.safeProxyFactoryAddress!;
+    }
+    if (contracts.fallbackHandlerAddress) {
+      safeAccountConfig.fallbackHandler = contracts.fallbackHandlerAddress!;
+    }
   }
 
   const initializer = encodeSetupCallData(safeAccountConfig);

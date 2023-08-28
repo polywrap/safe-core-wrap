@@ -36,6 +36,7 @@ type Module {
   """
   GnosisSafeContractEthers methods
   """
+  getNonce(address: String!, connection: Ethers_Connection): BigInt!
   getVersion(address: String!, connection: Ethers_Connection): String!
   approvedHashes(
     address: String!
@@ -47,13 +48,6 @@ type Module {
     safeAddress: String!
     hash: String!
     options: TransactionOptions
-    connection: Ethers_Connection
-  ): Ethers_TxReceipt!
-
-  execTransaction(
-    safeAddress: String!
-    safeTransaction: SafeTransaction!
-    txOptions: Ethers_TxOptions
     connection: Ethers_Connection
   ): Ethers_TxReceipt!
 
@@ -83,10 +77,7 @@ type Module {
   """
   Safe methods
   """
-  createTransaction(
-    tx: SafeTransactionData!
-    options: SafeTransactionDataPartial
-  ): SafeTransaction! @env(required: true)
+  createTransaction(tx: SafeTransactionDataPartial!): SafeTransaction!
   createMultiSendTransaction(
     txs: [SafeTransactionData!]!
     options: SafeTransactionDataPartial
@@ -95,7 +86,7 @@ type Module {
   ): SafeTransaction! @env(required: true)
   addSignature(tx: SafeTransaction!, signingMethod: String): SafeTransaction!
     @env(required: true)
-  getTransactionHash(tx: SafeTransactionData!): String @env(required: true)
+  getTransactionHash(tx: SafeTransactionData!): String! @env(required: true)
   signTransactionHash(hash: String!): SafeSignature! @env(required: true)
   signTransaction(tx: SafeTransactionData!): SafeSignature! @env(required: true)
   approveTransactionHash(
@@ -117,22 +108,19 @@ type Module {
   """
   Owner manager methods
   """
-  getOwners: [String!]! @env(required: true)
-  getThreshold: UInt32! @env(required: true)
-  isOwner(ownerAddress: String!): Boolean! @env(required: true)
+  getOwners(safeAddress: String!, connection: Ethers_Connection): [String!]!
+  getThreshold(safeAddress: String!, connection: Ethers_Connection): UInt32!
+  isOwner(
+    ownerAddress: String!
+    safeAddress: String!
+    connection: Ethers_Connection
+  ): Boolean!
 
   """
   Module manager methods
   """
   getModules: [String!]! @env(required: true)
   isModuleEnabled(moduleAddress: String!): Boolean! @env(required: true)
-
-  """
-  Contract manager methods
-  """
-  getAddress: String! @env(required: true)
-  getContractVersion: String! @env(required: true)
-  getNonce: BigInt! @env(required: true)
 
   """
   Utilities for transactions
