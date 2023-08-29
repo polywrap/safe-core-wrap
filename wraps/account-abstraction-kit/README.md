@@ -1,4 +1,4 @@
-# Safe AA Wrap
+# Account Abstraction Kit Wrap
 
 The Safe AA Wrap is an implementation of the [Safe{Core} Account Abstraction SDK](https://docs.safe.global/learn/safe-core/safe-core-account-abstraction-sdk) in the form of a Polywrap wrap.
 

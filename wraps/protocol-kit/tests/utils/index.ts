@@ -44,10 +44,6 @@ export function getClient(config?: {
     .setRedirect(
       "wrapscan.io/polywrap/protocol-kit@0.1.0",
       `fs/${__dirname}/../../build`
-    )
-    .setRedirect(
-      "wrapscan.io/polywrap/ethers@1.1.1",
-      `fs/${__dirname}/../../../../../ethereum/wraps/core/build`
     );
 
   if (config?.env) {

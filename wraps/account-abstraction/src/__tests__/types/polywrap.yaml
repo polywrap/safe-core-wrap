@@ -1,9 +1,0 @@
-format: 0.3.0
-project:
-  name: account-abstraction-app
-  type: app/typescript
-source:
-  schema: ./schema.graphql
-  import_abis:
-    - uri: "wrap://ens/aa.wraps.eth:core@0.0.1"
-      abi: "../../../build/wrap.info"

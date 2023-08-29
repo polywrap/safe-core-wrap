@@ -554,7 +554,6 @@ export class Module extends ModuleBase {
     const chainId = Ethers_Module.getChainId({
       connection: args.connection,
     }).unwrap();
-    const recreatedTx = createTransactionFromPartial(args.tx.data);
 
     //If no signatures - create signatures map
     if (signatures == null) {
@@ -565,9 +564,9 @@ export class Module extends ModuleBase {
       args.safeAddress,
       "1.3.0",
       chainId,
-      recreatedTx
+      args.tx.data
     );
-    const payload = toJsonTypedData(typedData) as JSON.Obj;
+    const payload = toJsonTypedData(typedData);
 
     const signature = Ethers_Module.signTypedData({
       payload,
@@ -616,7 +615,7 @@ export class Module extends ModuleBase {
         txData.to,
         txData.value.toString(),
         txData.data,
-        txData.operation!.toString(),
+        txData.operation!.unwrap().toString(),
         txData.safeTxGas!.toString(),
         txData.baseGas!.toString(),
         txData.gasPrice!.toString(),
