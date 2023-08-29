@@ -531,7 +531,7 @@ const signature = await client.invoke({
   })
 ```
 
-### signTransaction
+### addSignature
 
 Returns a new `SafeTransaction` object that includes the signature of the current owner. `eth_sign` will be used by default to generate the signature.
 

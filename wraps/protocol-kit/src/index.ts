@@ -33,7 +33,6 @@ import {
   Args_predictSafeAddress,
   Args_proxyCreationCode,
   Args_safeIsDeployed,
-  Args_signTransaction,
   Args_signTransactionHash,
   ContractNetworksConfig,
   Env,
@@ -50,6 +49,7 @@ import {
 import { SafeFactory } from "./factory";
 import {
   createTransactionFromPartial,
+  encodeSignatures,
   getSafeContractNetworks,
   getTransactionHash as getTransactionHashHelper,
   signTransactionHash as signTransactionHashHelper,
@@ -63,8 +63,13 @@ import {
 import * as ownerManager from "./managers/owner";
 import * as contractManager from "./managers/contracts";
 import * as moduleManager from "./managers/module";
-import { generatePreValidatedSignature } from "./utils/signature";
+import {
+  adjustVInSignature,
+  generatePreValidatedSignature,
+} from "./utils/signature";
 import { toTransaction, toTxReceipt } from "./utils/mappings";
+import { generateTypedData, toJsonTypedData } from "./utils/typedData";
+import { JSON } from "assemblyscript-json";
 
 export class Module extends ModuleBase {
   createProxy(args: Args_createProxy): string {
@@ -270,9 +275,6 @@ export class Module extends ModuleBase {
   }
   signTransactionHash(args: Args_signTransactionHash, env: Env): SafeSignature {
     return signTransactionHashHelper(args, env);
-  }
-  signTransaction(args: Args_signTransaction, env: Env): SafeSignature {
-    throw new Error("Method not implemented.");
   }
   approveTransactionHash(
     args: Args_approveTransactionHash,
@@ -533,7 +535,54 @@ export class Module extends ModuleBase {
     return ownersWhoApproved;
   }
   getSignature(args: Args_getSignature): SafeTransaction {
-    throw new Error("Method not implemented.");
+    const signerAddress = Ethers_Module.getSignerAddress({
+      connection: {
+        node: args.connection.node,
+        networkNameOrChainId: args.connection.networkNameOrChainId,
+      },
+    }).unwrap();
+
+    let signatures = args.tx.signatures;
+
+    //If signature of current signer is already present - return transaction
+    if (signatures != null) {
+      if (signatures.has(signerAddress)) {
+        return args.tx;
+      }
+    }
+
+    const chainId = Ethers_Module.getChainId({
+      connection: args.connection,
+    }).unwrap();
+    const recreatedTx = createTransactionFromPartial(args.tx.data);
+
+    //If no signatures - create signatures map
+    if (signatures == null) {
+      signatures = new Map<string, SafeSignature>();
+    }
+
+    const typedData = generateTypedData(
+      args.safeAddress,
+      "1.3.0",
+      chainId,
+      recreatedTx
+    );
+    const payload = toJsonTypedData(typedData) as JSON.Obj;
+
+    const signature = Ethers_Module.signTypedData({
+      payload,
+      connection: args.connection,
+    }).unwrap();
+
+    signatures.set(signerAddress, {
+      signer: signerAddress,
+      data: adjustVInSignature("eth_signTypedData", signature, null, null),
+    });
+
+    //Add signature of current signer
+    args.tx.signatures = signatures;
+
+    return args.tx;
   }
   getVersion(args: Args_getVersion): string {
     return contractManager.getVersion(args);
@@ -556,7 +605,26 @@ export class Module extends ModuleBase {
 
   // Encode utilities
   encodeExecTransaction(args: Args_encodeExecTransaction): string {
-    throw new Error("Method not implemented.");
+    const txData = args.safeTransaction.data;
+    const txSignatures = args.safeTransaction.signatures!;
+    const method =
+      "function execTransaction(address,uint256,bytes calldata,uint8,uint256,uint256,uint256,address,address,bytes memory)";
+    const encodedSignatures = encodeSignatures(txSignatures);
+    return Ethers_Module.encodeFunction({
+      method,
+      args: [
+        txData.to,
+        txData.value.toString(),
+        txData.data,
+        txData.operation!.toString(),
+        txData.safeTxGas!.toString(),
+        txData.baseGas!.toString(),
+        txData.gasPrice!.toString(),
+        txData.gasToken!,
+        txData.refundReceiver!,
+        encodedSignatures,
+      ],
+    }).unwrap();
   }
   encodeEnableModuleData(args: Args_encodeEnableModuleData, env: Env): string {
     return moduleManager.encodeEnableModuleData(args, env);

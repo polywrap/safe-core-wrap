@@ -21,6 +21,15 @@ type MetaTransactionData {
   operation: OperationType
 }
 
+type SafeTransactionOptions {
+  safeTxGas: BigInt
+  baseGas: BigInt
+  gasPrice: BigInt
+  gasToken: String
+  refundReceiver: String
+  nonce: Int
+}
+
 type SafeTransactionData implements MetaTransactionData {
   safeTxGas: BigInt!
   baseGas: BigInt!
@@ -30,7 +39,7 @@ type SafeTransactionData implements MetaTransactionData {
   nonce: Int!
 }
 
-type SafeTransactionDataPartial implements MetaTransactionData {
+type SafeTransactionDataPartial implements  MetaTransactionData {
   safeTxGas: BigInt
   baseGas: BigInt
   gasPrice: BigInt
