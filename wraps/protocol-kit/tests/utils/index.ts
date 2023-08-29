@@ -10,16 +10,17 @@ import {
 } from "@polywrap/ethereum-wallet-js";
 import { Wallet } from "ethers";
 import * as App from "../types/wrap";
-import { SafeTransactionDataPartial } from "../../src/wrap";
+import { setupAccounts } from "./setup";
 
-export * from "./setupContracts";
+export * from "./setup";
 
 export const CONNECTION = { networkNameOrChainId: "testnet" };
 
-export function getClient(): PolywrapClient {
-  const signer = new Wallet(
-    "0x4f3edf983ac636a65a842ce7c78d9aa706d3b113bce9c46f30d7d21715b23b1d"
-  );
+export function getClient(signer?: Wallet): PolywrapClient {
+  if (!signer) {
+    const account = setupAccounts();
+    signer = account[0].signer;
+  }
   const config = new PolywrapClientConfigBuilder()
     .addDefaults()
     .setPackages({
@@ -38,6 +39,10 @@ export function getClient(): PolywrapClient {
     .setRedirect(
       "wrapscan.io/polywrap/protocol-kit@0.1.0",
       `fs/${__dirname}/../../build`
+    )
+    .setRedirect(
+      "wrapscan.io/polywrap/ethers@1.1.1",
+      `fs/${__dirname}/../../../../../ethereum/wraps/core/build`
     );
   return new PolywrapClient(config.build());
 }
@@ -70,7 +75,9 @@ export async function stopInfra(): Promise<void> {
   }
 }
 
-export const createTransaction = async (data?: SafeTransactionDataPartial) => {
+export const createTransaction = async (
+  data?: App.Safe_SafeTransactionDataPartial
+) => {
   let safe = new App.Safe(getClient());
   const defaults = {
     data: "0x",

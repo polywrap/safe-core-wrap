@@ -82,12 +82,12 @@ export function createTransactionFromPartial(
     data: transactionData.data,
     to: transactionData.to,
     value: transactionData.value,
+    operation: Box.from(OperationType.Call),
     baseGas: BigInt.from("0"),
     gasPrice: BigInt.from("0"),
     safeTxGas: BigInt.from("0"),
     gasToken: ZERO_ADDRESS,
     nonce: 0,
-    operation: Box.from(OperationType.Call),
     refundReceiver: ZERO_ADDRESS,
   };
 

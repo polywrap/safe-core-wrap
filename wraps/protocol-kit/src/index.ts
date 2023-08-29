@@ -1,4 +1,4 @@
-import { BigInt } from "@polywrap/wasm-as";
+import { BigInt, Box } from "@polywrap/wasm-as";
 import {
   Args_addSignature,
   Args_approveHash,
@@ -43,12 +43,19 @@ import {
   SafeSignature,
   SafeTransaction,
   Ethers_TxOptions,
+  SafeTransactionData,
+  OperationType,
+  SafeTransactionDataPartial,
 } from "./wrap";
 import { SafeFactory } from "./factory";
 import * as ContractHelpers from "./contracts";
 import { encodeSetupCallData, isContractDeployed } from "./factory/utils";
 import { createTransactionFromPartial } from "./contracts/utils";
-import { execTransaction, signTypedData } from "./utils/transaction";
+import {
+  encodeMultiSendData as encodeMultiSendDataHelper,
+  execTransaction,
+  signTypedData,
+} from "./utils/transaction";
 import { generatePreValidatedSignature } from "./utils/signature";
 import { toTransaction, toTxReceipt } from "./utils/mappings";
 import { approvedHashes } from "./managers/owner";
@@ -162,7 +169,77 @@ export class Module extends ModuleBase {
     args: Args_createMultiSendTransaction,
     env: Env
   ): SafeTransaction {
-    throw new Error("Method not implemented.");
+    if (args.txs.length == 0) {
+      throw new Error("Invalid empty array of transactions");
+    }
+
+    if (args.txs.length == 1) {
+      return this.createTransaction({ tx: args.txs[0] });
+    }
+
+    const multiSendData = encodeMultiSendDataHelper(args.txs);
+
+    const data = Ethers_Module.encodeFunction({
+      method: "function multiSend(bytes transactions)",
+      args: [multiSendData],
+    }).unwrap();
+
+    const transactionData = createTransactionFromPartial({
+      data: "",
+      to: "",
+      value: BigInt.from(""),
+    } as SafeTransactionDataPartial);
+
+    let multiSendAddress: string = "";
+
+    if (args.customMultiSendContractAddress != null) {
+      multiSendAddress = args.customMultiSendContractAddress!;
+    } else {
+      const chainId = Ethers_Module.getChainId({
+        connection: env.connection,
+      }).unwrap();
+      const isL1Safe = true; // TODO figure out how get it from safe
+      const version = this.getVersion({
+        address: env.safeAddress,
+        connection: env.connection,
+      });
+      const contractNetworks = this.getSafeContractNetworks({
+        chainId,
+        isL1Safe: Box.from(isL1Safe),
+        version: version,
+        filter: {
+          safeMasterCopyAddress: false,
+          safeProxyFactoryAddress: false,
+          multiSendAddress: true,
+          multiSendCallOnlyAddress: true,
+          fallbackHandlerAddress: true,
+        },
+      });
+
+      if (args.onlyCalls) {
+        multiSendAddress = contractNetworks.multiSendCallOnlyAddress!;
+      } else {
+        multiSendAddress = contractNetworks.multiSendAddress!;
+      }
+    }
+
+    const multiSendTransaction: SafeTransactionData = {
+      to: multiSendAddress,
+      value: BigInt.from("0"),
+      data: data,
+      operation: Box.from(OperationType.DelegateCall), // OperationType.DelegateCall,
+      baseGas: transactionData.baseGas,
+      gasPrice: transactionData.gasPrice,
+      gasToken: transactionData.gasToken,
+      nonce: transactionData.nonce,
+      refundReceiver: transactionData.refundReceiver,
+      safeTxGas: transactionData.safeTxGas,
+    };
+
+    return {
+      data: multiSendTransaction,
+      signatures: new Map<string, SafeSignature>(),
+    };
   }
   getTransactionHash(args: Args_getTransactionHash, env: Env): string {
     return ContractHelpers.getTransactionHash(args, env);
@@ -177,7 +254,48 @@ export class Module extends ModuleBase {
     args: Args_approveTransactionHash,
     env: Env
   ): Ethers_TxReceipt {
-    throw new Error("Method not implemented.");
+    const signerAddress = Ethers_Module.getSignerAddress({
+      connection: env.connection,
+    }).unwrap();
+
+    const addressIsOwner = ContractHelpers.isOwner({
+      ownerAddress: signerAddress,
+      safeAddress: env.safeAddress,
+      connection: env.connection,
+    });
+
+    if (!addressIsOwner) {
+      throw new Error("Transaction hashes can only be approved by Safe owners");
+    }
+
+    const options: Ethers_TxOptions = {
+      gasPrice: null,
+      nonce: null,
+      value: null,
+      maxFeePerGas: null,
+      maxPriorityFeePerGas: null,
+      gasLimit: null,
+    };
+
+    if (args.options) {
+      if (args.options!.gasPrice) {
+        options.gasPrice = args.options!.gasPrice;
+      }
+
+      if (args.options!.gasLimit) {
+        options.gasLimit = args.options!.gasLimit;
+      }
+    }
+
+    const response = Ethers_Module.callContractMethodAndWait({
+      method: "function approveHash(bytes32 hashToApprove)",
+      address: env.safeAddress,
+      args: [args.hash],
+      connection: env.connection,
+      options,
+    }).unwrap();
+
+    return response;
   }
   approvedHashes(args: Args_approvedHashes): BigInt {
     throw new Error("Method not implemented.");
@@ -290,6 +408,16 @@ export class Module extends ModuleBase {
       if (args.options!.gasLimit) {
         txOptions.gasLimit = args.options!.gasLimit;
       }
+
+      if (args.options!.maxFeePerGas) {
+        txOptions.maxFeePerGas = args.options!.maxFeePerGas;
+      }
+
+      if (args.options!.maxPriorityFeePerGas) {
+        txOptions.maxPriorityFeePerGas = BigInt.from(
+          args.options!.maxPriorityFeePerGas!
+        );
+      }
     }
 
     const txReceipt = execTransaction(
@@ -366,7 +494,7 @@ export class Module extends ModuleBase {
     throw new Error("Method not implemented.");
   }
   encodeMultiSendData(args: Args_encodeMultiSendData): string {
-    throw new Error("Method not implemented.");
+    return encodeMultiSendDataHelper(args.txs);
   }
   encodeAddOwnerWithThresholdData(
     args: Args_encodeAddOwnerWithThresholdData,

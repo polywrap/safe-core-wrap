@@ -9,12 +9,12 @@ import {
   Args_encodeChangeThresholdData,
   Args_encodeRemoveOwnerData,
   Args_encodeSwapOwnerData,
+  Args_approvedHashes,
   Env,
   Ethers_Module,
 } from "../wrap";
 import { BigInt } from "@polywrap/wasm-as";
 import * as ContractHelpers from "../contracts";
-import { Args_approvedHashes } from "../wrap";
 
 export function encodeAddOwnerWithThresholdData(
   args: Args_encodeAddOwnerWithThresholdData,

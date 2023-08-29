@@ -15,14 +15,12 @@ const safeVersion = process.env.SAFE_VERSION as VERSIONS;
 
 describe("Safe Factory", () => {
   let contracts: SupportedContracts<string>;
-  let safe: App.Safe;
+  const client = getClient();
+  const safe = new App.Safe(client);
 
   beforeAll(async () => {
     await initInfra();
-    const client = getClient();
-
-    contracts = await setUpContracts(client);
-    safe = new App.Safe(client);
+    contracts = await setUpContracts(new App.Ethers(client));
   });
 
   afterAll(async () => {

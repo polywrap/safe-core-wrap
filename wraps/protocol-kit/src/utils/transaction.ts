@@ -1,4 +1,8 @@
-import { encodeSignatures, getVersion } from "../contracts";
+import {
+  createTransactionFromPartial,
+  encodeSignatures,
+  getVersion,
+} from "../contracts";
 
 import {
   Env,
@@ -9,9 +13,12 @@ import {
   Ethers_Connection,
   SafeTransaction,
   Ethers_TxOptions,
+  SafeTransactionDataPartial,
+  OperationType,
 } from "../wrap";
 import { adjustVInSignature } from "./signature";
 import { generateTypedData, toJsonTypedData } from "./typedData";
+import { BigInt } from "@polywrap/wasm-as";
 
 export function signTypedData(
   tx: SafeTransactionData,
@@ -101,3 +108,27 @@ export function execTransaction(
     connection: connection,
   }).unwrap();
 }
+
+export const encodeMultiSendData = (
+  transactionDataArr: SafeTransactionDataPartial[]
+): string => {
+  let dataStr = "";
+
+  for (let i = 0; i < transactionDataArr.length; i++) {
+    const standardized = createTransactionFromPartial(transactionDataArr[i]);
+    let operation: BigInt = BigInt.from("0");
+    if (!standardized.operation!.isEmpty()) {
+      if (standardized.operation!.unwrap() == OperationType.DelegateCall) {
+        operation = BigInt.from("1");
+      }
+    }
+    const encodedData = Ethers_Module.encodeMetaTransaction({
+      to: standardized.to,
+      value: standardized.value,
+      data: standardized.data,
+      operation: operation,
+    }).unwrap();
+    dataStr = dataStr.concat(encodedData.slice(2));
+  }
+  return "0x" + dataStr;
+};

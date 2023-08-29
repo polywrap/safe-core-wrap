@@ -8,7 +8,7 @@ import {
     TxReceipt,
     TxResponse,
     StaticTxResult
-} into Ethers from "wrapscan.io/polywrap/ethers@1.1.0"
+} into Ethers from "wrapscan.io/polywrap/ethers@1.1.1"
 import {
     SafeSignature,
     SafeTransaction,
@@ -64,7 +64,6 @@ type Module {
   ): String!
 
   # Factory utilities
-
   deploySafe(input: DeploymentInput!, txOptions: Ethers_TxOptions): String!
   predictSafeAddress(input: DeploymentInput!): String!
   encodeDeploySafe(input: DeploymentInput!): String!
@@ -79,8 +78,7 @@ type Module {
   """
   createTransaction(tx: SafeTransactionDataPartial!): SafeTransaction!
   createMultiSendTransaction(
-    txs: [SafeTransactionData!]!
-    options: SafeTransactionDataPartial
+    txs: [SafeTransactionDataPartial!]!
     onlyCalls: Boolean
     customMultiSendContractAddress: String
   ): SafeTransaction! @env(required: true)
@@ -127,7 +125,7 @@ type Module {
   """
   encodeEnableModuleData(moduleAddress: String!): String! @env(required: true)
   encodeDisableModuleData(moduleAddress: String!): String! @env(required: true)
-  encodeMultiSendData(txs: [SafeTransactionData!]!): String!
+  encodeMultiSendData(txs: [SafeTransactionDataPartial!]!): String!
   encodeAddOwnerWithThresholdData(
     ownerAddress: String!
     threshold: UInt32

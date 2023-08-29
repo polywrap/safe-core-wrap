@@ -4,7 +4,7 @@
   "scripts": {
     "build": "polywrap build",
     "deploy": "polywrap deploy -o deployments.json",
-    "test": "SAFE_VERSION=1.3.0 jest --passWithNoTests --runInBand --verbose",
+    "test": "SAFE_VERSION=1.2.0 jest --passWithNoTests --runInBand --verbose",
     "pretest": "polywrap codegen -m ./tests/types/polywrap.app.yaml -g ./tests/types/wrap"
   },
   "devDependencies": {

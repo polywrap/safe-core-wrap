@@ -1,4 +1,4 @@
-import { PolywrapClient } from "@polywrap/client-js";
+import { Wallet } from "ethers";
 import * as App from "../types/wrap";
 
 import {
@@ -34,6 +34,11 @@ import {
   abi as multisendCallOnlyAbi,
   bytecode as multisendCallOnlyBytecode,
 } from "@gnosis.pm/safe-contracts_1.3.0/build/artifacts/contracts/libraries/MultiSendCallOnly.sol/MultiSendCallOnly.json";
+
+import {
+  abi as ERC20MintableAbi,
+  bytecode as ERC20MintableBytecode,
+} from "./ERC20Mock.json";
 
 import { CONNECTION } from ".";
 
@@ -107,10 +112,8 @@ export const SAFE_VERSIONS_INFO: SupportedContracts<ContractInfo> = {
 
 // @TODO(cbrzn): This can be completely dynamic (Rather than hard coding the version variables)
 export async function setUpContracts(
-  client: PolywrapClient
+  ethers: App.Ethers
 ): Promise<SupportedContracts<Address>> {
-  const ethers = new App.Ethers(client);
-
   const safeV1_2_0 = SAFE_VERSIONS_INFO.SAFE!["1.2.0"];
   const factoryV1_2_0 = SAFE_VERSIONS_INFO.FACTORY!["1.2.0"];
 
@@ -210,3 +213,60 @@ export async function setUpContracts(
     },
   };
 }
+
+export const setupAccounts = () => {
+  return [
+    {
+      signer: new Wallet(
+        "0x4f3edf983ac636a65a842ce7c78d9aa706d3b113bce9c46f30d7d21715b23b1d"
+      ),
+      address: "0x90F8bf6A479f320ead074411a4B0e7944Ea8c9C1",
+    },
+    {
+      signer: new Wallet(
+        "0x6cbed15c793ce57650b9877cf6fa156fbef513c4e6134f022a85b1ffdd59b2a1"
+      ),
+      address: "0xFFcf8FDEE72ac11b5c542428B35EEF5769C409f0",
+    },
+    {
+      signer: new Wallet(
+        "0x6370fd033278c143179d81c5526140625662b8daa446c22ee2d73db3707e620c"
+      ),
+      address: "0x22d491Bde2303f2f43325b2108D26f1eAbA1e32b",
+    },
+  ];
+};
+
+export const deployTestSafe = async (
+  safe: App.Safe,
+  input: App.Safe_DeploymentInput
+) => {
+  const deploySafeResponse = await safe.deploySafe({
+    input: {
+      ...input,
+      safeDeploymentConfig: {
+        saltNonce: Date.now().toString(),
+        ...input.safeDeploymentConfig,
+      },
+    },
+  });
+
+  if (!deploySafeResponse.ok) {
+    throw "Error deploying test safe: " + deploySafeResponse.error;
+  }
+
+  return deploySafeResponse.value;
+};
+
+export const deployTestErc20 = async (ethers: App.Ethers) => {
+  const deployErc20Response = await ethers.deployContract({
+    abi: JSON.stringify(ERC20MintableAbi),
+    bytecode: ERC20MintableBytecode,
+    connection: CONNECTION,
+  });
+  if (!deployErc20Response.ok) {
+    throw "Error deploying test ERC20: " + deployErc20Response.error;
+  }
+
+  return deployErc20Response.value;
+};
