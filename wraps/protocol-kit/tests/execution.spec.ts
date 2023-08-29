@@ -132,20 +132,20 @@ describe("Transactions execution", () => {
         {
           tx: signedTxRes.value.data,
         },
-        getClient(accounts[1].signer),
+        getClient({ signer: accounts[1].signer }),
         { safeAddress, connection: CONNECTION }
       );
       if (!txHashRes.ok) fail(txHashRes.error);
       const approveResponse = await safe.approveTransactionHash(
         { hash: txHashRes.value },
-        getClient(accounts[1].signer),
+        getClient({ signer: accounts[1].signer }),
         { safeAddress, connection: CONNECTION }
       );
       if (!approveResponse.ok) fail(approveResponse.error);
 
       const executionResult = await safe.executeTransaction(
         { tx: signedTxRes.value },
-        getClient(accounts[2].signer),
+        getClient({ signer: accounts[2].signer }),
         { safeAddress, connection: CONNECTION }
       );
       expect(executionResult.ok).toBeTruthy();
@@ -189,20 +189,20 @@ describe("Transactions execution", () => {
         {
           tx: signedTxRes.value.data,
         },
-        getClient(accounts[1].signer),
+        getClient({ signer: accounts[1].signer }),
         { safeAddress, connection: CONNECTION }
       );
       if (!txHashRes.ok) fail(txHashRes.error);
       const approveResponse = await safe.approveTransactionHash(
         { hash: txHashRes.value },
-        getClient(accounts[1].signer),
+        getClient({ signer: accounts[1].signer }),
         { safeAddress, connection: CONNECTION }
       );
       if (!approveResponse.ok) fail(approveResponse.error);
 
       const executionResult = await safe.executeTransaction(
         { tx: signedTxRes.value },
-        getClient(accounts[2].signer),
+        getClient({ signer: accounts[2].signer }),
         { safeAddress, connection: CONNECTION }
       );
       expect(executionResult.ok).toBeTruthy();
@@ -453,7 +453,7 @@ describe("Transactions execution", () => {
     });
   });
 
-  describe.only("Should execute a multisend transaction", () => {
+  describe("Should execute a multisend transaction", () => {
     it("with threshold > 1", async () => {
       safeAddress = await deployTestSafe(safe, {
         safeAccountConfig: {
@@ -498,20 +498,20 @@ describe("Transactions execution", () => {
         {
           tx: signedTxRes.value.data,
         },
-        getClient(accounts[1].signer),
+        getClient({ signer: accounts[1].signer }),
         { safeAddress, connection: CONNECTION }
       );
       if (!txHashRes.ok) fail(txHashRes.error);
       const approveResponse = await safe.approveTransactionHash(
         { hash: txHashRes.value },
-        getClient(accounts[1].signer),
+        getClient({ signer: accounts[1].signer }),
         { safeAddress, connection: CONNECTION }
       );
       if (!approveResponse.ok) fail(approveResponse.error);
 
       const executionResult = await safe.executeTransaction(
         { tx: signedTxRes.value },
-        getClient(accounts[2].signer),
+        getClient({ signer: accounts[2].signer }),
         { safeAddress, connection: CONNECTION }
       );
       expect(executionResult.ok).toBeTruthy();
@@ -524,7 +524,7 @@ describe("Transactions execution", () => {
       expect(balanceAfter.value).toEqual("2000000000000000000");
     });
 
-    it.only("with contract calls and threshold >1", async () => {
+    it("with contract calls and threshold >1", async () => {
       const erc20Address = await deployTestErc20(ethers);
       safeAddress = await deployTestSafe(safe, {
         safeAccountConfig: {
@@ -604,20 +604,20 @@ describe("Transactions execution", () => {
         {
           tx: signedTxRes.value.data,
         },
-        getClient(accounts[1].signer),
+        getClient({ signer: accounts[1].signer }),
         { safeAddress, connection: CONNECTION }
       );
       if (!txHashRes.ok) fail(txHashRes.error);
       const approveResponse = await safe.approveTransactionHash(
         { hash: txHashRes.value },
-        getClient(accounts[1].signer),
+        getClient({ signer: accounts[1].signer }),
         { safeAddress, connection: CONNECTION }
       );
       if (!approveResponse.ok) fail(approveResponse.error);
 
       const executionResult = await safe.executeTransaction(
         { tx: signedTxRes.value },
-        getClient(accounts[2].signer),
+        getClient({ signer: accounts[2].signer }),
         { safeAddress, connection: CONNECTION }
       );
       expect(executionResult.ok).toBeTruthy();

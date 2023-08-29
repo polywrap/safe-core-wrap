@@ -298,10 +298,69 @@ export class Module extends ModuleBase {
     return response;
   }
   approvedHashes(args: Args_approvedHashes): BigInt {
-    throw new Error("Method not implemented.");
+    const result = Ethers_Module.callContractView({
+      address: args.address,
+      method:
+        "function approvedHashes(address owner, bytes32 hash) public view returns (uint256)",
+      args: [args.ownerAddress, args.hash],
+      connection: args.connection,
+    }).unwrap();
+    return BigInt.from(result);
   }
   approveHash(args: Args_approveHash): Ethers_TxReceipt {
-    throw new Error("Method not implemented.");
+    const signerAddress = Ethers_Module.getSignerAddress({
+      connection: args.connection,
+    }).unwrap();
+
+    const addressIsOwner = this.isOwner({
+      safeAddress: args.safeAddress,
+      ownerAddress: signerAddress,
+      connection: args.connection,
+    });
+
+    if (!addressIsOwner) {
+      throw new Error("Transaction hashes can only be approved by Safe owners");
+    }
+
+    if (
+      args.options != null &&
+      args.options!.gasPrice &&
+      args.options!.gasLimit
+    ) {
+      throw new Error(
+        "Cannot specify gas and gasLimit together in transaction options"
+      );
+    }
+
+    // if (args.options != null && !args.options!.gasLimit) {
+    //   args.options!.gasLimit = this.estimateGas({
+    //     address: args.safeAddress,
+    //     method: "function approveHash(bytes32 hashToApprove) external",
+    //     args: [args.hash],
+    //     connection: args.connection,
+    //   });
+    // }
+
+    const nonce = args.options ? args.options!.nonce : null;
+
+    const response = Ethers_Module.callContractMethodAndWait({
+      method: "function approveHash(bytes32 hashToApprove) external",
+      address: args.safeAddress,
+      args: [args.hash],
+      connection: args.connection,
+      options: {
+        gasLimit: args.options ? args.options!.gasLimit : null,
+        gasPrice: args.options ? args.options!.gasPrice : null,
+        value: null,
+        maxFeePerGas: args.options ? args.options!.maxFeePerGas : null,
+        maxPriorityFeePerGas: args.options
+          ? BigInt.from(args.options!.maxPriorityFeePerGas)
+          : null,
+        nonce: nonce ? Box.from(nonce.toUInt32()) : null,
+      },
+    }).unwrap();
+
+    return response;
   }
   executeTransaction(
     args: Args_executeTransaction,

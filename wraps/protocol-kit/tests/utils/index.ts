@@ -16,12 +16,17 @@ export * from "./setup";
 
 export const CONNECTION = { networkNameOrChainId: "testnet" };
 
-export function getClient(signer?: Wallet): PolywrapClient {
+export function getClient(config?: {
+  signer?: Wallet;
+  env?: Record<string, unknown>;
+}): PolywrapClient {
+  let signer = config?.signer;
+
   if (!signer) {
     const account = setupAccounts();
     signer = account[0].signer;
   }
-  const config = new PolywrapClientConfigBuilder()
+  const builder = new PolywrapClientConfigBuilder()
     .addDefaults()
     .setPackages({
       "wrapscan.io/polywrap/ethereum-wallet@1.0": ethereumWalletPlugin({
@@ -44,7 +49,11 @@ export function getClient(signer?: Wallet): PolywrapClient {
       "wrapscan.io/polywrap/ethers@1.1.1",
       `fs/${__dirname}/../../../../../ethereum/wraps/core/build`
     );
-  return new PolywrapClient(config.build());
+
+  if (config?.env) {
+    builder.addEnv("wrapscan.io/polywrap/protocol-kit@0.1.0", config.env);
+  }
+  return new PolywrapClient(builder.build());
 }
 
 export async function initInfra(): Promise<void> {
