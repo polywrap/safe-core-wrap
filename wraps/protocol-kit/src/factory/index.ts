@@ -15,6 +15,7 @@ import {
   prepareSafeDeployPayload,
 } from "./utils";
 
+export * from "./utils";
 export class SafeFactory {
   constructor(public deploymentInput: DeploymentInput) {}
 

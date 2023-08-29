@@ -28,8 +28,8 @@ describe("Transactions execution", () => {
     contracts = await setUpContracts(ethers);
     safeAddress = await deployTestSafe(safe, {
       safeAccountConfig: {
-        owners: [accounts[0].address],
-        threshold: 1,
+        owners: accounts.map((a) => a.address).slice(0, -1),
+        threshold: 2,
       },
       connection: CONNECTION,
       customContractAddresses: {
@@ -77,7 +77,7 @@ describe("Transactions execution", () => {
           hash: transactionHash.value,
         },
         // Pass client with different signer when approving hash
-        getClient({ signer: accounts[1].signer }),
+        getClient({ signer: accounts[2].signer }),
         {
           safeAddress,
           connection: CONNECTION,
@@ -126,6 +126,108 @@ describe("Transactions execution", () => {
       if (!approvedHashes.ok) throw approvedHashes.error;
 
       expect(approvedHashes.value).toEqual("1");
+    });
+
+    it("should ignore duplicated signature", async () => {
+      const transactionData = {
+        to: accounts[0].address,
+        value: "500000000000000000", // 0.5 ETH,
+        data: "0x",
+      };
+
+      const transaction = await safe.createTransaction({
+        tx: transactionData,
+      });
+
+      if (!transaction.ok) throw transaction.error;
+
+      const transactionHash = await safe.getTransactionHash({
+        tx: transaction.value.data,
+      });
+
+      if (!transactionHash.ok) throw transactionHash.error;
+
+      const signatureTx = await safe.approveTransactionHash({
+        hash: transactionHash.value,
+      });
+      if (!signatureTx.ok) throw signatureTx.error;
+      expect(signatureTx.value.transactionHash).toBeTruthy();
+      expect(signatureTx.value.logs.length).toBeGreaterThan(0);
+      expect(signatureTx.value.to.toLowerCase()).toEqual(
+        safeAddress.toLowerCase()
+      );
+
+      const approvedHashes = await safe.approvedHashes({
+        address: safeAddress,
+        hash: transactionHash.value,
+        ownerAddress: accounts[0].address,
+      });
+      if (!approvedHashes.ok) throw approvedHashes.error;
+
+      expect(approvedHashes.value).toEqual("1");
+      const secondApproval = await safe.approveTransactionHash({
+        hash: transactionHash.value,
+      });
+      if (!secondApproval.ok) throw secondApproval.error;
+
+      const refetchApprovedHashes = await safe.approvedHashes({
+        address: safeAddress,
+        hash: transactionHash.value,
+        ownerAddress: accounts[0].address,
+      });
+      if (!refetchApprovedHashes.ok) throw refetchApprovedHashes.error;
+
+      expect(refetchApprovedHashes.value).toEqual("1");
+    });
+  });
+
+  describe("Get owners who approved tx method", () => {
+    it("Should return the list of owners who approved a transaction hash", async () => {
+      const transactionData = {
+        to: accounts[0].address,
+        value: "500000000000000000", // 0.5 ETH,
+        data: "0x",
+      };
+
+      const transaction = await safe.createTransaction({
+        tx: transactionData,
+      });
+
+      if (!transaction.ok) throw transaction.error;
+
+      const transactionHash = await safe.getTransactionHash({
+        tx: transaction.value.data,
+      });
+
+      if (!transactionHash.ok) throw transactionHash.error;
+
+      const hash = transactionHash.value;
+      const signatureTx = await safe.approveTransactionHash({
+        hash,
+      });
+      if (!signatureTx.ok) throw signatureTx.error;
+
+      const secondSignatureTx = await safe.approveTransactionHash(
+        {
+          hash,
+        },
+        getClient({ signer: accounts[1].signer }),
+        {
+          safeAddress,
+          connection: CONNECTION,
+        }
+      );
+      if (!secondSignatureTx.ok) throw secondSignatureTx.error;
+
+      const approvers = await safe.getOwnersWhoApprovedTx({ hash });
+      if (!approvers.ok) throw approvers.error;
+
+      expect(approvers.value.length).toEqual(2);
+      expect(JSON.stringify(approvers.value)).toBe(
+        JSON.stringify(
+          accounts.map((a) => a.address.toLowerCase()).slice(0, -1)
+        )
+      );
     });
   });
 });

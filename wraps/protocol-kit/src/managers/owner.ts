@@ -12,16 +12,19 @@ import {
   Args_approvedHashes,
   Env,
   Ethers_Module,
+  Args_getThreshold,
+  Args_getOwners,
+  Args_isOwner,
 } from "../wrap";
 import { BigInt } from "@polywrap/wasm-as";
-import * as ContractHelpers from "../contracts";
+import { JSON } from "assemblyscript-json";
 
 export function encodeAddOwnerWithThresholdData(
   args: Args_encodeAddOwnerWithThresholdData,
   env: Env
 ): string {
   validateOwnerAddress(args.ownerAddress);
-  const owners = ContractHelpers.getOwners({
+  const owners = getOwners({
     safeAddress: env.safeAddress,
     connection: env.connection,
   });
@@ -30,7 +33,7 @@ export function encodeAddOwnerWithThresholdData(
   if (args.threshold !== null) {
     threshold = args.threshold!.unwrap();
   } else {
-    threshold = ContractHelpers.getThreshold({
+    threshold = getThreshold({
       safeAddress: env.safeAddress,
       connection: env.connection,
     });
@@ -49,7 +52,7 @@ export function encodeRemoveOwnerData(
   env: Env
 ): string {
   validateOwnerAddress(args.ownerAddress);
-  const owners = ContractHelpers.getOwners({
+  const owners = getOwners({
     safeAddress: env.safeAddress,
     connection: env.connection,
   });
@@ -61,7 +64,7 @@ export function encodeRemoveOwnerData(
   if (args.threshold !== null) {
     threshold = args.threshold!.unwrap();
   } else {
-    threshold = ContractHelpers.getThreshold({
+    threshold = getThreshold({
       safeAddress: env.safeAddress,
       connection: env.connection,
     });
@@ -81,7 +84,7 @@ export function encodeSwapOwnerData(
 ): string {
   validateOwnerAddress(args.oldOwnerAddress);
   validateOwnerAddress(args.newOwnerAddress);
-  const owners = ContractHelpers.getOwners({
+  const owners = getOwners({
     safeAddress: env.safeAddress,
     connection: env.connection,
   });
@@ -102,7 +105,7 @@ export function encodeChangeThresholdData(
   args: Args_encodeChangeThresholdData,
   env: Env
 ): string {
-  const owners = ContractHelpers.getOwners({
+  const owners = getOwners({
     safeAddress: env.safeAddress,
     connection: env.connection,
   });
@@ -123,4 +126,52 @@ export function approvedHashes(args: Args_approvedHashes): BigInt {
     connection: args.connection,
   }).unwrap();
   return BigInt.from(result);
+}
+
+export function getThreshold(args: Args_getThreshold): u32 {
+  const resp = Ethers_Module.callContractView({
+    address: args.safeAddress,
+    method: "function getThreshold() public view returns (uint256)",
+    args: null,
+    connection: args.connection,
+  }).unwrap();
+  return u32(parseInt(resp, 10));
+}
+
+export function getOwners(args: Args_getOwners): string[] {
+  const resp = Ethers_Module.callContractView({
+    address: args.safeAddress,
+    method: "function getOwners() public view returns (address[] memory)",
+    args: null,
+    connection: args.connection,
+  }).unwrap();
+
+  const v = JSON.parse(resp);
+  if (!v.isArr) {
+    throw new Error("ethereum value is not array: " + v.stringify());
+  }
+  const arr = (v as JSON.Arr).valueOf();
+  const result: string[] = [];
+  for (let i = 0; i < arr.length; i++) {
+    let s = arr[i];
+    if (!s.isString) {
+      throw new Error("ethereum value element is not string: " + s.stringify());
+    }
+    result.push((s as JSON.Str).valueOf());
+  }
+  return result;
+}
+
+export function isOwner(args: Args_isOwner): boolean {
+  const resp = Ethers_Module.callContractView({
+    address: args.safeAddress,
+    method: "function isOwner(address owner) public view returns (bool)",
+    args: [args.ownerAddress],
+    connection: args.connection,
+  }).unwrap();
+  if (resp == "true") {
+    return true;
+  } else {
+    return false;
+  }
 }

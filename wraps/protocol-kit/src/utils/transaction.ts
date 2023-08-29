@@ -1,8 +1,5 @@
-import {
-  createTransactionFromPartial,
-  encodeSignatures,
-  getVersion,
-} from "../contracts";
+import { createTransactionFromPartial, encodeSignatures } from "../contracts";
+import { getVersion } from "../managers/contracts";
 
 import {
   Env,
@@ -76,18 +73,6 @@ export function execTransaction(
     "function execTransaction(address,uint256,bytes calldata,uint8,uint256,uint256,uint256,address,address,bytes memory)";
 
   const encodedSignatures = encodeSignatures(txSignatures);
-  // if (!txOptions.gasLimit) {
-  //   const estimationArgs = getTransactionHashArgs(txData);
-  //   estimationArgs.pop();
-  //   estimationArgs.push(encodedSignatures);
-
-  //   txOptions.gasLimit = this.estimateGas({
-  //     address: args.safeAddress,
-  //     method,
-  //     args: estimationArgs,
-  //     connection: args.connection,
-  //   });
-  // }
 
   return Ethers_Module.callContractMethodAndWait({
     address: safeAddress,

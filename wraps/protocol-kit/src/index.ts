@@ -48,17 +48,23 @@ import {
   SafeTransactionDataPartial,
 } from "./wrap";
 import { SafeFactory } from "./factory";
-import * as ContractHelpers from "./contracts";
+import {
+  createTransactionFromPartial,
+  getSafeContractNetworks,
+  getTransactionHash as getTransactionHashHelper,
+  signTransactionHash as signTransactionHashHelper,
+} from "./contracts";
 import { encodeSetupCallData, isContractDeployed } from "./factory/utils";
-import { createTransactionFromPartial } from "./contracts/utils";
 import {
   encodeMultiSendData as encodeMultiSendDataHelper,
   execTransaction,
   signTypedData,
 } from "./utils/transaction";
+import * as ownerManager from "./managers/owner";
+import * as contractManager from "./managers/contracts";
+import * as moduleManager from "./managers/module";
 import { generatePreValidatedSignature } from "./utils/signature";
 import { toTransaction, toTxReceipt } from "./utils/mappings";
-import { approvedHashes } from "./managers/owner";
 
 export class Module extends ModuleBase {
   createProxy(args: Args_createProxy): string {
@@ -70,7 +76,7 @@ export class Module extends ModuleBase {
   getSafeContractNetworks(
     args: Args_getSafeContractNetworks
   ): ContractNetworksConfig {
-    return ContractHelpers.getSafeContractNetworks(args);
+    return getSafeContractNetworks(args);
   }
   getNonce(args: Args_getNonce): BigInt {
     const nonce = Ethers_Module.callContractView({
@@ -120,7 +126,7 @@ export class Module extends ModuleBase {
       },
     }).unwrap();
 
-    const addressIsOwner = ContractHelpers.isOwner({
+    const addressIsOwner = ownerManager.isOwner({
       ownerAddress: signerAddress,
       safeAddress: env.safeAddress,
       connection: env.connection,
@@ -228,12 +234,30 @@ export class Module extends ModuleBase {
       value: BigInt.from("0"),
       data: data,
       operation: Box.from(OperationType.DelegateCall), // OperationType.DelegateCall,
-      baseGas: transactionData.baseGas,
-      gasPrice: transactionData.gasPrice,
-      gasToken: transactionData.gasToken,
-      nonce: transactionData.nonce,
-      refundReceiver: transactionData.refundReceiver,
-      safeTxGas: transactionData.safeTxGas,
+      baseGas:
+        args.options != null && args.options!.baseGas
+          ? args.options!.baseGas!
+          : transactionData.baseGas,
+      gasPrice:
+        args.options != null && args.options!.gasPrice
+          ? args.options!.gasPrice!
+          : transactionData.gasPrice,
+      gasToken:
+        args.options != null && args.options!.gasToken
+          ? args.options!.gasToken!
+          : transactionData.gasToken,
+      nonce:
+        args.options != null && args.options!.nonce
+          ? args.options!.nonce!.unwrap()
+          : transactionData.nonce,
+      refundReceiver:
+        args.options != null && args.options!.refundReceiver
+          ? args.options!.refundReceiver!
+          : transactionData.refundReceiver,
+      safeTxGas:
+        args.options != null && args.options!.safeTxGas
+          ? args.options!.safeTxGas!
+          : transactionData.safeTxGas,
     };
 
     return {
@@ -242,10 +266,10 @@ export class Module extends ModuleBase {
     };
   }
   getTransactionHash(args: Args_getTransactionHash, env: Env): string {
-    return ContractHelpers.getTransactionHash(args, env);
+    return getTransactionHashHelper(args, env);
   }
   signTransactionHash(args: Args_signTransactionHash, env: Env): SafeSignature {
-    return ContractHelpers.signTransactionHash(args, env);
+    return signTransactionHashHelper(args, env);
   }
   signTransaction(args: Args_signTransaction, env: Env): SafeSignature {
     throw new Error("Method not implemented.");
@@ -258,7 +282,7 @@ export class Module extends ModuleBase {
       connection: env.connection,
     }).unwrap();
 
-    const addressIsOwner = ContractHelpers.isOwner({
+    const addressIsOwner = ownerManager.isOwner({
       ownerAddress: signerAddress,
       safeAddress: env.safeAddress,
       connection: env.connection,
@@ -332,15 +356,6 @@ export class Module extends ModuleBase {
       );
     }
 
-    // if (args.options != null && !args.options!.gasLimit) {
-    //   args.options!.gasLimit = this.estimateGas({
-    //     address: args.safeAddress,
-    //     method: "function approveHash(bytes32 hashToApprove) external",
-    //     args: [args.hash],
-    //     connection: args.connection,
-    //   });
-    // }
-
     const nonce = args.options ? args.options!.nonce : null;
 
     const response = Ethers_Module.callContractMethodAndWait({
@@ -398,7 +413,7 @@ export class Module extends ModuleBase {
       );
     }
 
-    const owners = ContractHelpers.getOwners({
+    const owners = ownerManager.getOwners({
       safeAddress: env.safeAddress,
       connection: env.connection,
     });
@@ -414,7 +429,7 @@ export class Module extends ModuleBase {
       );
     }
 
-    const threshold = ContractHelpers.getThreshold({
+    const threshold = ownerManager.getThreshold({
       safeAddress: env.safeAddress,
       connection: env.connection,
     });
@@ -497,7 +512,7 @@ export class Module extends ModuleBase {
     args: Args_getOwnersWhoApprovedTx,
     env: Env
   ): string[] {
-    const owners = ContractHelpers.getOwners({
+    const owners = ownerManager.getOwners({
       safeAddress: env.safeAddress,
       connection: env.connection,
     });
@@ -505,7 +520,7 @@ export class Module extends ModuleBase {
 
     for (let i = 0; i < owners.length; i++) {
       const owner = owners[i];
-      const approved = approvedHashes({
+      const approved = ownerManager.approvedHashes({
         hash: args.hash,
         ownerAddress: owner,
         address: env.safeAddress,
@@ -521,22 +536,22 @@ export class Module extends ModuleBase {
     throw new Error("Method not implemented.");
   }
   getVersion(args: Args_getVersion): string {
-    return ContractHelpers.getVersion(args);
+    return contractManager.getVersion(args);
   }
   getOwners(args: Args_getOwners): string[] {
-    return ContractHelpers.getOwners(args);
+    return ownerManager.getOwners(args);
   }
   getThreshold(args: Args_getThreshold): u32 {
-    return ContractHelpers.getThreshold(args);
+    return ownerManager.getThreshold(args);
   }
   isOwner(args: Args_isOwner): boolean {
-    return ContractHelpers.isOwner(args);
+    return ownerManager.isOwner(args);
   }
   getModules(args: Args_getModules, env: Env): string[] {
-    throw new Error("Method not implemented.");
+    return moduleManager.getModules(args, env);
   }
   isModuleEnabled(args: Args_isModuleEnabled, env: Env): boolean {
-    throw new Error("Method not implemented.");
+    return moduleManager.isModuleEnabled(args, env);
   }
 
   // Encode utilities
@@ -544,13 +559,13 @@ export class Module extends ModuleBase {
     throw new Error("Method not implemented.");
   }
   encodeEnableModuleData(args: Args_encodeEnableModuleData, env: Env): string {
-    throw new Error("Method not implemented.");
+    return moduleManager.encodeEnableModuleData(args, env);
   }
   encodeDisableModuleData(
     args: Args_encodeDisableModuleData,
     env: Env
   ): string {
-    throw new Error("Method not implemented.");
+    return moduleManager.encodeDisableModuleData(args, env);
   }
   encodeMultiSendData(args: Args_encodeMultiSendData): string {
     return encodeMultiSendDataHelper(args.txs);
@@ -559,18 +574,18 @@ export class Module extends ModuleBase {
     args: Args_encodeAddOwnerWithThresholdData,
     env: Env
   ): string {
-    throw new Error("Method not implemented.");
+    return ownerManager.encodeAddOwnerWithThresholdData(args, env);
   }
   encodeRemoveOwnerData(args: Args_encodeRemoveOwnerData, env: Env): string {
-    throw new Error("Method not implemented.");
+    return ownerManager.encodeRemoveOwnerData(args, env);
   }
   encodeSwapOwnerData(args: Args_encodeSwapOwnerData, env: Env): string {
-    throw new Error("Method not implemented.");
+    return ownerManager.encodeSwapOwnerData(args, env);
   }
   encodeChangeThresholdData(
     args: Args_encodeChangeThresholdData,
     env: Env
   ): string {
-    throw new Error("Method not implemented.");
+    return ownerManager.encodeChangeThresholdData(args, env);
   }
 }
