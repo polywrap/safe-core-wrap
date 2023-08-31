@@ -170,7 +170,6 @@ export class SafeFactory {
       args: [
         payload.safeContractAddress,
         payload.initializer,
-        // @TODO(cbrzn): This should accept salt nonce as string
         BigInt.fromString(payload.saltNonce).toString(),
       ],
     }).unwrap();

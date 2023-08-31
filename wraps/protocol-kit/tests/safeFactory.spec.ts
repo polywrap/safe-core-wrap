@@ -173,6 +173,7 @@ describe("Safe Factory", () => {
         );
       }
     });
+
   });
 
   describe("Prediction of safe address", () => {

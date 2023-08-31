@@ -1,12 +1,15 @@
-use crate::wrap::*;
+use crate::wrap::{
+    SafeSafeAccountConfig as SafeAccountConfig, SafeSafeDeploymentConfig as SafeDeploymentConfig,
+    SafeSafeTransaction as SafeTransaction, SafeSafeTransactionData as SafeTransactionData,
+    SafeSafeTransactionDataPartial as SafeTransactionDataPartial, *,
+};
 use polywrap_msgpack_serde::BigIntWrapper;
-use polywrap_wasm_rs::{BigInt, wrap_debug_log};
+use polywrap_wasm_rs::{wrap_debug_log, BigInt};
 
 pub const ZERO_ADDRESS: &str = "0x0000000000000000000000000000000000000000";
 
 // keccak256(toUtf8Bytes('Safe Account Abstraction'))
-pub const PREDETERMINED_SALT_NONCE: &str =
-    "0x888";
+pub const PREDETERMINED_SALT_NONCE: &str = "0x888";
 
 pub trait AccountAbstraction {
     fn relay_transaction(
@@ -52,13 +55,11 @@ impl AccountAbstraction for Safe {
             .unwrap();
 
         let (relay_transaction_target, encoded_transaction) = if self.is_deployed() {
-            wrap_debug_log("safe is indeed deployed...");
             // if safe is deployed, just execute the previous sanitized transaction
             (self.address.as_str().to_string(), transaction_data)
         } else {
-            wrap_debug_log("safe is not deployed huehue...");
             // if safe is NOT deployed, we need to add the deployment
-            let safe_deployment_transaction = SafeSafeTransactionDataPartial {
+            let safe_deployment_transaction = SafeTransactionDataPartial {
                 to: self.factory_address.as_str().to_string(),
                 value: BigIntWrapper(BigInt::from(0)),
                 data: SafeModule::encode_deploy_safe(&imported::ArgsEncodeDeploySafe {
@@ -74,7 +75,7 @@ impl AccountAbstraction for Safe {
                 nonce: None,
             };
 
-            let safe_transaction = SafeSafeTransactionDataPartial {
+            let safe_transaction = SafeTransactionDataPartial {
                 to: self.address.as_str().to_string(),
                 value: BigIntWrapper(BigInt::from(0)),
                 data: transaction_data,
@@ -177,13 +178,13 @@ impl Safe {
                 panic!("Could not fetch multisend contract")
             };
 
-        let deployment_config = SafeSafeDeploymentConfig {
+        let deployment_config = SafeDeploymentConfig {
             salt_nonce,
             is_l1_safe: None,
             version: None,
         };
         let deployment_info = SafeDeploymentInput {
-            safe_account_config: SafeSafeAccountConfig {
+            safe_account_config: SafeAccountConfig {
                 owners: vec![signer.as_str().to_string()],
                 threshold: 1,
                 fallback_handler: None,
@@ -250,7 +251,7 @@ impl Safe {
         &self,
         transaction: SafeMetaTransactionData,
         options: MetaTransactionOptions,
-    ) -> SafeSafeTransaction {
+    ) -> SafeTransaction {
         let is_sponsored = if let Some(i) = options.is_sponsored {
             i
         } else {
@@ -288,8 +289,8 @@ impl Safe {
             RelayerModule::get_fee_collector(&imported::ArgsGetFeeCollector {}).unwrap()
         };
 
-        SafeSafeTransaction {
-            data: SafeSafeTransactionData {
+        SafeTransaction {
+            data: SafeTransactionData {
                 data: transaction.data,
                 value: transaction.value,
                 to: transaction.to,

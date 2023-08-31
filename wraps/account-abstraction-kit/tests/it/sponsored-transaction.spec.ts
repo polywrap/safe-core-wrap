@@ -34,7 +34,7 @@ describe("Sponsored transaction AA wrapper", () => {
     if (!gasLimit.ok) throw gasLimit.error;
 
     const gaslimitWithBuffer = BigNumber.from(gasLimit.value)
-      .add(250_000)
+      .add(300_000)
       .toString();
     const estimation = await relay.getEstimateFee({
       chainId: 5,

@@ -1,4 +1,4 @@
-import { BigInt, Box } from "@polywrap/wasm-as";
+import { BigInt, Box, wrap_debug_log } from "@polywrap/wasm-as";
 import {
   Args_addSignature,
   Args_approveHash,
@@ -69,7 +69,6 @@ import {
 } from "./utils/signature";
 import { toTransaction, toTxReceipt } from "./utils/mappings";
 import { generateTypedData, toJsonTypedData } from "./utils/typedData";
-import { JSON } from "assemblyscript-json";
 
 export class Module extends ModuleBase {
   createProxy(args: Args_createProxy): string {
@@ -635,8 +634,16 @@ export class Module extends ModuleBase {
     return moduleManager.encodeDisableModuleData(args, env);
   }
   encodeMultiSendData(args: Args_encodeMultiSendData): string {
-    return encodeMultiSendDataHelper(args.txs);
+    const multiSendData = encodeMultiSendDataHelper(args.txs);
+
+    const encodedMultisend = Ethers_Module.encodeFunction({
+      method: "function multiSend(bytes transactions)",
+      args: [multiSendData],
+    }).unwrap();
+    wrap_debug_log(encodedMultisend);
+    return encodedMultisend;
   }
+
   encodeAddOwnerWithThresholdData(
     args: Args_encodeAddOwnerWithThresholdData,
     env: Env

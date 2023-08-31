@@ -16,7 +16,7 @@ export const CONNECTION = {
   networkNameOrChainId: "goerli",
 };
 
-export const SALT_NONCE = "0x192921932929299299";
+export const SALT_NONCE = "0x3219329299299";
 
 export function getClient(): PolywrapClient {
   const builder = new PolywrapClientConfigBuilder()

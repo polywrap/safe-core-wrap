@@ -1,10 +1,8 @@
 import * as App from "../types/wrap";
 import { BigNumber } from "ethers";
-import { CONNECTION, getClient } from "./utils";
+import { CONNECTION, SALT_NONCE, getClient } from "./utils";
 
 jest.setTimeout(600000);
-
-const saltNonce = "0x192921932929299299";
 
 describe("Paid transaction AA wrapper", () => {
   const client = getClient();
@@ -36,7 +34,7 @@ describe("Paid transaction AA wrapper", () => {
     if (!gasLimit.ok) throw gasLimit.error;
 
     const gaslimitWithBuffer = BigNumber.from(gasLimit.value)
-      .add(150_000)
+      .add(300_000)
       .toString();
 
     const estimation = await relay.getEstimateFee({
@@ -47,7 +45,7 @@ describe("Paid transaction AA wrapper", () => {
 
     const safeAddress = await accountAbstraction.getSafeAddress({
       config: {
-        saltNonce,
+        saltNonce: SALT_NONCE,
       },
     });
     if (!safeAddress.ok) throw safeAddress.error;
@@ -96,7 +94,7 @@ describe("Paid transaction AA wrapper", () => {
       transaction: metaTransactionData,
       options: metaTransactionOptions,
       config: {
-        saltNonce,
+        saltNonce: SALT_NONCE,
       },
     });
 
