@@ -4,7 +4,6 @@
   "scripts": {
     "codegen": "polywrap codegen -m src/types/polywrap.app.yaml",
     "deploy-safe": "ts-node -e \"import { deploySafe } from './src/protocol-kit/deploy-safe'; (async () => await deploySafe())()\"",
-    "generate-safe-addresses": "ts-node -e \"import { generateSafeAddresses } from './src/protocol-kit/generate-safe-address'; (async () => await generateSafeAddresses())()\"",
     "paid-transaction": "ts-node  -e \"import { paidTransaction } from './src/relay-kit/paid-transaction'; (async () => await paidTransaction())()\"",
     "sponsored-transaction": "ts-node  -e \"import { sponsoredTransaction } from './src/relay-kit/sponsored-transaction'; (async () => await sponsoredTransaction())()\""
   },
