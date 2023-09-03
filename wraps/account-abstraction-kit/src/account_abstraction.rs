@@ -4,7 +4,7 @@ use crate::wrap::{
     SafeSafeTransactionDataPartial as SafeTransactionDataPartial, *,
 };
 use polywrap_msgpack_serde::BigIntWrapper;
-use polywrap_wasm_rs::{wrap_debug_log, BigInt};
+use polywrap_wasm_rs::BigInt;
 
 pub const ZERO_ADDRESS: &str = "0x0000000000000000000000000000000000000000";
 

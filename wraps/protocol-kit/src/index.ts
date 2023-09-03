@@ -1,4 +1,4 @@
-import { BigInt, Box, wrap_debug_log } from "@polywrap/wasm-as";
+import { BigInt, Box } from "@polywrap/wasm-as";
 import {
   Args_addSignature,
   Args_approveHash,
@@ -640,7 +640,6 @@ export class Module extends ModuleBase {
       method: "function multiSend(bytes transactions)",
       args: [multiSendData],
     }).unwrap();
-    wrap_debug_log(encodedMultisend);
     return encodedMultisend;
   }
 
