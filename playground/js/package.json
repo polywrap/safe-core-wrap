@@ -1,0 +1,19 @@
+{
+  "name": "safe-core-wrap-playground",
+  "description": "Safe core wrap playground",
+  "scripts": {
+    "codegen": "polywrap codegen -m src/types/polywrap.app.yaml",
+    "deploy-safe": "ts-node -e \"import { deploySafe } from './src/protocol-kit/deploy-safe'; (async () => await deploySafe())()\"",
+    "generate-safe-addresses": "ts-node -e \"import { generateSafeAddresses } from './src/protocol-kit/generate-safe-address'; (async () => await generateSafeAddresses())()\"",
+    "paid-transaction": "ts-node  -e \"import { paidTransaction } from './src/relay-kit/paid-transaction'; (async () => await paidTransaction())()\"",
+    "sponsored-transaction": "ts-node  -e \"import { sponsoredTransaction } from './src/relay-kit/sponsored-transaction'; (async () => await sponsoredTransaction())()\""
+  },
+  "devDependencies": {
+    "@polywrap/client-js": "0.12.2",
+    "@polywrap/ethereum-wallet-js": "0.1.0",
+    "@types/node": "20.5.7",
+    "dotenv": "16.3.1",
+    "typescript": "5.2.2",
+    "ts-node": "10.9.1"
+  }
+}

@@ -1,0 +1,13 @@
+format: 0.4.0
+project:
+  name: account-abstraction-playground
+  type: app/typescript
+source:
+  schema: ./polywrap.graphql
+  import_abis:
+    - uri: "wrapscan.io/polywrap/account-abstraction-kit@0.1.0"
+      abi: "../../../wraps/account-abstraction-kit/build/wrap.info"
+    - uri: "wrapscan.io/polywrap/relay-kit@0.1.0"
+      abi: "../../../wraps/relay-kit/build/wrap.info"
+    - uri: "wrapscan.io/polywrap/protocol-kit@0.1.0"
+      abi: "../../../wraps/protocol-kit/build/wrap.info"
