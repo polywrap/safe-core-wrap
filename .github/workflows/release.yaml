@@ -7,107 +7,66 @@ on:
       - main
 
 jobs:
-  protocol-wrap:
+  Release:
     if: |
       github.event.pull_request.merged &&
       endsWith(github.event.pull_request.title, '/workflows/release')
     runs-on: ubuntu-latest
-    defaults:
-      run:
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Read .nvmrc
+        run: echo ::set-output name=NVMRC::$(cat ./nvmrc)
+        id: nvm
+
+      - name: Setup Node.js
+        uses: actions/setup-node@master
+        with:
+          node-version: "${{ steps.nvm.outputs.NVMRC }}"
+
+      - name: Install protocol kit dependencies
+        run: yarn
         working-directory: ./wraps/protocol-kit
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
 
-      - name: Read .nvmrc
-        run: echo ::set-output name=NVMRC::$(cat ../../nvmrc)
-        id: nvm
-
-      - name: Setup Node.js
-        uses: actions/setup-node@master
-        with:
-          node-version: "${{ steps.nvm.outputs.NVMRC }}"
-
-      - name: Install dependencies
-        run: yarn
-
-      - name: Build
+      - name: Build protocol kit
         run: yarn build
+        working-directory: ./wraps/protocol-kit
 
-      - name: Deploy
+      - name: Deploy protocol kit
         run: yarn deploy
+        working-directory: ./wraps/protocol-kit
         env:
           POLYWRAP_WRAPSCAN_AUTH_HEADER_PROD: ${{secrets.POLYWRAP_WRAPSCAN_AUTH_HEADER_PROD}}
 
-  relay-wrap:
-    runs-on: ubuntu-latest
-    if: |
-      github.event.pull_request.merged &&
-      endsWith(github.event.pull_request.title, '/workflows/release')
-    defaults:
-      run:
+      - name: Install relay kit dependencies
+        run: yarn
         working-directory: ./wraps/relay-kit
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
 
-      - name: Read .nvmrc
-        run: echo ::set-output name=NVMRC::$(cat ../../nvmrc)
-        id: nvm
-
-      - name: Setup Node.js
-        uses: actions/setup-node@master
-        with:
-          node-version: "${{ steps.nvm.outputs.NVMRC }}"
-
-      - name: Install dependencies
-        run: yarn
-
-      - name: Build
+      - name: Build relay kit
         run: yarn build
+        working-directory: ./wraps/relay-kit
 
-      - name: Deploy
+      - name: Deploy relay kit
         run: yarn deploy
+        working-directory: ./wraps/relay-kit
         env:
           POLYWRAP_WRAPSCAN_AUTH_HEADER_PROD: ${{secrets.POLYWRAP_WRAPSCAN_AUTH_HEADER_PROD}}
 
-  account-abstraction-wrap:
-    runs-on: ubuntu-latest
-    defaults:
-      run:
+      - name: Install account abstraction kit dependencies
+        run: yarn
         working-directory: ./wraps/account-abstraction-kit
-    needs:
-      - relay-wrap
-      - protocol-wrap
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v2
 
-      - name: Read .nvmrc
-        run: echo ::set-output name=NVMRC::$(cat ../../nvmrc)
-        id: nvm
-
-      - name: Setup Node.js
-        uses: actions/setup-node@master
-        with:
-          node-version: "${{ steps.nvm.outputs.NVMRC }}"
-
-      - name: Install dependencies
-        run: yarn
-
-      - name: Build
+      - name: Build account abstraction kit
         run: yarn build
+        working-directory: ./wraps/account-abstraction-kit
 
-      - name: Deploy
+      - name: Deploy account abstraction kit
         run: yarn deploy
+        working-directory: ./wraps/account-abstraction-kit
         env:
           POLYWRAP_WRAPSCAN_AUTH_HEADER_PROD: ${{secrets.POLYWRAP_WRAPSCAN_AUTH_HEADER_PROD}}
 
-  release-pr:
-    needs:
-      - account-abstraction-wrap
-    runs-on: ubuntu-latest
-    steps:
       - uses: peter-evans/create-pull-request@v3
         with:
           branch: update-uri-pr-${{github.event.number}}
