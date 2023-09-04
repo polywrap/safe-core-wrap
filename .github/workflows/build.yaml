@@ -60,6 +60,8 @@ jobs:
 
       - name: Tests
         run: yarn test
+        env:
+          RELAYER_API_KEY: ${{ secrets.RELAYER_API_KEY }}
 
   account-abstraction-wrap:
     runs-on: ubuntu-latest
