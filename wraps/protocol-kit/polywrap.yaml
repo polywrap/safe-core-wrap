@@ -1,6 +1,6 @@
 format: 0.5.0
 project:
-  name: safe-protocol-kit-wrap
+  name: safe-protocol-kit
   type: wasm/assemblyscript
 source:
   module: ./src/index.ts
