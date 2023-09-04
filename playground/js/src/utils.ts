@@ -11,13 +11,13 @@ import {
 import { Wallet, BigNumber } from "ethers";
 import { config } from "dotenv";
 
-config();
+config({ path: "../.env" });
 
 export const CONNECTION = {
   networkNameOrChainId: "goerli",
 };
 
-export const SALT_NONCE = "0x88811188888";
+export const SALT_NONCE = "0x8881";
 
 export async function createTransaction(ethers: App.Ethers) {
   const encodedFunction = await ethers.encodeFunction({
@@ -42,7 +42,7 @@ export async function createTransaction(ethers: App.Ethers) {
   });
 
   if (!gasLimit.ok) throw gasLimit.error;
-  const TRANSACTION_GAS_BUFFER = 0;
+  const TRANSACTION_GAS_BUFFER = 200_000;
   const withBuffer = BigNumber.from(gasLimit.value).add(TRANSACTION_GAS_BUFFER);
   return { transaction: metaTransactionData, gasLimit: withBuffer.toString() };
 }

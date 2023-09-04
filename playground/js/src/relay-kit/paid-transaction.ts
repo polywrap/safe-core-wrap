@@ -51,7 +51,7 @@ export const paidTransaction = async () => {
   }
 
   const gasLimitWithBuffer = BigNumber.from(estimation.value)
-    .add(250_000)
+    .add(350_000)
     .toString();
   const metaTransactionOptions = {
     gasLimit: gasLimitWithBuffer,

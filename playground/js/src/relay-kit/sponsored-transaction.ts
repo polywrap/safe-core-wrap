@@ -3,7 +3,7 @@ import { createTransaction, getClient, SALT_NONCE } from "../utils";
 import { BigNumber } from "ethers";
 
 export const sponsoredTransaction = async () => {
-  console.log("Execute meta-transaction via Gelato Relay paid by 1Balance");
+  console.log("Executing meta-transaction via Gelato Relay paid by 1Balance");
 
   const client = getClient();
   const accountAbstraction = new App.AccountAbstraction(client);
@@ -19,7 +19,7 @@ export const sponsoredTransaction = async () => {
   });
   if (!address.ok) throw address.error;
 
-  console.log("Predicted safe address: ", address);
+  console.log("Predicted safe address: ", address.value);
 
   const metaTransactionOptions = {
     gasLimit: gasLimitWithBuffer,

@@ -6,16 +6,13 @@
 cd rs
 ```
 
-2. Install rust and necessary dependencies:
-```
-nvm install && nvm use && yarn
-```
+2. You must have rust installed on your machine. If you don't, you can install it [here](https://www.rust-lang.org/tools/install). Make sure you're using stable version and not nightly
 
-3. You can update the salt nonce in the `src/utils` file. This salt nonce is used later to create the new Safe address.
+3. You can update the salt nonce in the `src/lib.rs` file. This salt nonce is used later to create the new Safe address.
 
-```ts
-const SALT_NONCE = "0x185593";
+```rs
+const SALT_NONCE: &str = "0x185593";
 ```
 
-4. Now you should be able to run any available script from JS! You can just run `yarn ${script_name}` from terminal. You can see available scripts [here](../README.md#available-scripts)
+4. Now you should be able to run any available script from Rust! You can just run `cargo run --bin script_name --release` from terminal. You can see available scripts [here](../README.md#available-scripts)
 
