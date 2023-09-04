@@ -12,7 +12,7 @@
 
 <img src="assets/multiplatform.png" width="500x">
 
-The Safe Core Wrap is a Polywrap-powered version of the [Safe Core Wrap SDK](https://github.com/safe-global/safe-core-sdk). It allows developers build ["smart accounts"](https://docs.safe.global/safe-core-protocol/safe-core-protocol), accounts with fully customizable functionality.
+The Safe Core Wrap is a Polywrap-powered version of the [officla Safe Core SDK](https://github.com/safe-global/safe-core-sdk). It allows developers to build ["smart accounts"](https://docs.safe.global/safe-core-protocol/safe-core-protocol), accounts with fully customizable functionality.
 
 Smart accounts aim to bring much-needed UX improvements to web3.
 
