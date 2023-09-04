@@ -33,6 +33,8 @@ jobs:
 
       - name: Deploy
         run: yarn deploy
+        env:
+          POLYWRAP_WRAPSCAN_AUTH_HEADER_PROD: ${{secrets.POLYWRAP_WRAPSCAN_AUTH_HEADER_PROD}}
 
   relay-wrap:
     runs-on: ubuntu-latest
@@ -60,6 +62,8 @@ jobs:
 
       - name: Deploy
         run: yarn deploy
+        env:
+          POLYWRAP_WRAPSCAN_AUTH_HEADER_PROD: ${{secrets.POLYWRAP_WRAPSCAN_AUTH_HEADER_PROD}}
 
   account-abstraction-wrap:
     runs-on: ubuntu-latest
@@ -90,13 +94,17 @@ jobs:
 
       - name: Deploy
         run: yarn deploy
+        env:
+          POLYWRAP_WRAPSCAN_AUTH_HEADER_PROD: ${{secrets.POLYWRAP_WRAPSCAN_AUTH_HEADER_PROD}}
 
   release-pr:
     needs:
       - account-abstraction-wrap
-    uses: peter-evans/create-pull-request@v3
-    with:
-      branch: update-uri-pr-${{github.event.number}}
-      commit-message: "chore: update wrap uris"
-      title: "chore: update wrap uris"
-      body: "Triggered by: https://github.com/${{github.repository}}/pull/${{github.event.number}}"
+    runs-on: ubuntu-latest
+    steps:
+      uses: peter-evans/create-pull-request@v3
+      with:
+        branch: update-uri-pr-${{github.event.number}}
+        commit-message: "chore: update wrap uris"
+        title: "chore: update wrap uris"
+        body: "Triggered by: https://github.com/${{github.repository}}/pull/${{github.event.number}}"
