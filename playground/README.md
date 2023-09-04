@@ -27,7 +27,7 @@ RELAYER_API_KEY=AiaCshYRyAUzTNfZZb8LftJaAl2SS3I8YwhJJXc5J7A_
 
 3. Supply your account with Goerli ETH in order to send transactions. You can use a [Goerli faucet](https://goerlifaucet.com/) to do this.
 
-4. Now you should be able to execute demos. Go to the any subfolder from the `playground` folder and check the respective README to know available commands
+4. Now you should be able to execute demos. Go to the any subfolder from the `playground` folder and check the respective README to know how to run in the respective language. Here is a list of the available script names
 
 ## Available scripts
 
