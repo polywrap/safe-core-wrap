@@ -1,1 +1,1 @@
-wrap://ipfs/QmUzUv2qiytk8KTkGhqrMLSWRr29t1uvoyqnfFX8mVDfu4
+wrap://http/https://wraps.wrapscan.io/r/polywrap/safe-relay-kit@0.0.1

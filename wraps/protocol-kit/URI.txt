@@ -1,0 +1,1 @@
+wrap://http/https://wraps.wrapscan.io/r/polywrap/safe-protocol-kit@0.0.1

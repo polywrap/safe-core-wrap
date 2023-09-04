@@ -1,1 +1,1 @@
-wrap://ipfs/QmUtw73JEfEpnL3DcgzWiWz1kHomVfgEGpo5s8UNd76quS
+wrap://http/https://wraps.wrapscan.io/r/polywrap/safe-account-abstraction-kit@0.0.1
