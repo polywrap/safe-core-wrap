@@ -1,0 +1,25 @@
+"""
+import { MetaTransactionOptions } from "../common/polywrap.graphql"
+import { Module } into GelatoRelayer from "wrapscan.io/polywrap/gelato-relay@0.1.1"
+"""
+
+type Env {
+    relayerApiKey: String!
+}
+
+type Module {
+    getFeeCollector: String!
+    getEstimateFee(chainId: Int!, gasLimit: BigInt!, gasToken: String): BigInt!
+    relayTransaction(transaction: RelayTransaction!): RelayResponse! @env(required: false)
+}
+
+type RelayTransaction {
+    target: String!
+    encodedTransaction: String!
+    chainId: Int!
+    options: MetaTransactionOptions!
+}
+
+type RelayResponse {
+    taskId: String!
+}

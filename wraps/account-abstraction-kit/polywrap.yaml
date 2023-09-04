@@ -1,0 +1,14 @@
+format: 0.5.0
+project:
+  name: safe-account-abstraction-kit
+  type: wasm/rust
+source:
+  module: ./Cargo.toml
+  schema: ./polywrap.graphql
+  import_abis:
+    - uri: "wrapscan.io/polywrap/relay-kit@0.1.0"
+      abi: ../relay-kit/polywrap.graphql
+    - uri: "wrapscan.io/polywrap/protocol-kit@0.1.0"
+      abi: ../protocol-kit/polywrap.graphql
+extensions:
+  docs: ./polywrap.docs.yaml

@@ -1,0 +1,9 @@
+format: 0.4.0
+project:
+  name: protocol-kit-app
+  type: app/typescript
+source:
+  schema: ./polywrap.app.graphql
+  import_abis:
+    - uri: "wrapscan.io/polywrap/protocol-kit@0.1.0"
+      abi: "../../build/wrap.info"

@@ -1,0 +1,115 @@
+name: Safe Core Wraps Release
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  protocol-wrap:
+    if: |
+      github.event.pull_request.merged &&
+      endsWith(github.event.pull_request.title, '/workflows/release')
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./wraps/protocol-kit
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Read .nvmrc
+        run: echo ::set-output name=NVMRC::$(cat ../../nvmrc)
+        id: nvm
+
+      - name: Setup Node.js
+        uses: actions/setup-node@master
+        with:
+          node-version: "${{ steps.nvm.outputs.NVMRC }}"
+
+      - name: Install dependencies
+        run: yarn
+
+      - name: Build
+        run: yarn build
+
+      - name: Deploy
+        run: yarn deploy
+        env:
+          POLYWRAP_WRAPSCAN_AUTH_HEADER_PROD: ${{secrets.POLYWRAP_WRAPSCAN_AUTH_HEADER_PROD}}
+
+  relay-wrap:
+    runs-on: ubuntu-latest
+    if: |
+      github.event.pull_request.merged &&
+      endsWith(github.event.pull_request.title, '/workflows/release')
+    defaults:
+      run:
+        working-directory: ./wraps/relay-kit
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Read .nvmrc
+        run: echo ::set-output name=NVMRC::$(cat ../../nvmrc)
+        id: nvm
+
+      - name: Setup Node.js
+        uses: actions/setup-node@master
+        with:
+          node-version: "${{ steps.nvm.outputs.NVMRC }}"
+
+      - name: Install dependencies
+        run: yarn
+
+      - name: Build
+        run: yarn build
+
+      - name: Deploy
+        run: yarn deploy
+        env:
+          POLYWRAP_WRAPSCAN_AUTH_HEADER_PROD: ${{secrets.POLYWRAP_WRAPSCAN_AUTH_HEADER_PROD}}
+
+  account-abstraction-wrap:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./wraps/account-abstraction-kit
+    needs:
+      - relay-wrap
+      - protocol-wrap
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Read .nvmrc
+        run: echo ::set-output name=NVMRC::$(cat ../../nvmrc)
+        id: nvm
+
+      - name: Setup Node.js
+        uses: actions/setup-node@master
+        with:
+          node-version: "${{ steps.nvm.outputs.NVMRC }}"
+
+      - name: Install dependencies
+        run: yarn
+
+      - name: Build
+        run: yarn build
+
+      - name: Deploy
+        run: yarn deploy
+        env:
+          POLYWRAP_WRAPSCAN_AUTH_HEADER_PROD: ${{secrets.POLYWRAP_WRAPSCAN_AUTH_HEADER_PROD}}
+
+  release-pr:
+    needs:
+      - account-abstraction-wrap
+    runs-on: ubuntu-latest
+    steps:
+      - uses: peter-evans/create-pull-request@v3
+        with:
+          branch: update-uri-pr-${{github.event.number}}
+          commit-message: "chore: update wrap uris"
+          title: "chore: update wrap uris"
+          body: "Triggered by: https://github.com/${{github.repository}}/pull/${{github.event.number}}"

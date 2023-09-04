@@ -1,0 +1,87 @@
+enum OperationType {
+  Call # 0
+  DelegateCall # 1
+}
+
+type SafeAccountConfig {
+  owners: [String!]!
+  threshold: UInt!
+  to: String
+  data: String
+  fallbackHandler: String
+  paymentToken: String
+  payment: BigInt
+  paymentReceiver: String
+}
+
+type MetaTransactionData {
+  to: String!
+  value: BigInt!
+  data: String!
+  operation: OperationType
+}
+
+type SafeTransactionOptions {
+  safeTxGas: BigInt
+  baseGas: BigInt
+  gasPrice: BigInt
+  gasToken: String
+  refundReceiver: String
+  nonce: Int
+}
+
+type SafeTransactionData implements MetaTransactionData {
+  safeTxGas: BigInt!
+  baseGas: BigInt!
+  gasPrice: BigInt!
+  gasToken: String!
+  refundReceiver: String!
+  nonce: Int!
+}
+
+type SafeTransactionDataPartial implements  MetaTransactionData {
+  safeTxGas: BigInt
+  baseGas: BigInt
+  gasPrice: BigInt
+  gasToken: String
+  refundReceiver: String
+  nonce: Int
+}
+
+type SafeTransaction {
+  signatures: Map @annotate(type: "Map<String!, SafeSignature!>")
+  data: SafeTransactionData!
+}
+
+type SafeSignature {
+  signer: String!
+  data: String!
+}
+
+type TransactionOptions {
+  from: String
+  gas: BigInt
+  gasLimit: BigInt
+  gasPrice: BigInt
+  maxFeePerGas: BigInt
+  maxPriorityFeePerGas: String
+  nonce: BigInt
+}
+
+type MetaTransactionOptions {
+  gasLimit: BigInt!
+  gasToken: String
+  isSponsored: Boolean
+}
+
+
+type RelayTransaction {
+  target: String!
+  encodedTransaction: String!
+  chainId: Int!
+  options: MetaTransactionOptions!
+}
+
+type RelayResponse {
+  taskId: String!
+}

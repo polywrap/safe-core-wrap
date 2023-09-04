@@ -1,0 +1,26 @@
+"""
+import { MetaTransactionData, MetaTransactionOptions, RelayTransaction } from "../common/polywrap.graphql"
+import { Module, Connection } into Ethers from "wrapscan.io/polywrap/ethers@1.1.1"
+import { Module } into Relayer from "wrapscan.io/polywrap/relay-kit@0.1.0"
+import { Module, CustomContract } into Safe from "wrapscan.io/polywrap/protocol-kit@0.1.0"
+"""
+
+type Module {
+    relayTransaction(
+        transaction: MetaTransactionData!
+        options: MetaTransactionOptions!
+        config: DeploymentParameters
+    ): String! @env(required: true)
+    getSafeAddress(
+        config: DeploymentParameters
+    ): String! @env(required: true)
+}
+
+type Env {
+    connection: Ethers_Connection
+}
+
+type DeploymentParameters {
+    saltNonce: String
+    customContractAddresses: Safe_CustomContract
+}

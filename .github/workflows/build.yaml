@@ -1,0 +1,91 @@
+name: Safe Core Wraps CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  protocol-wrap:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./wraps/protocol-kit
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Read .nvmrc
+        run: echo ::set-output name=NVMRC::$(cat ../../nvmrc)
+        id: nvm
+
+      - name: Setup Node.js
+        uses: actions/setup-node@master
+        with:
+          node-version: "${{ steps.nvm.outputs.NVMRC }}"
+
+      - name: Install dependencies
+        run: yarn
+
+      - name: Build
+        run: yarn build
+
+      - name: Tests
+        run: yarn test
+
+  relay-wrap:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./wraps/relay-kit
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Read .nvmrc
+        run: echo ::set-output name=NVMRC::$(cat ../../nvmrc)
+        id: nvm
+
+      - name: Setup Node.js
+        uses: actions/setup-node@master
+        with:
+          node-version: "${{ steps.nvm.outputs.NVMRC }}"
+
+      - name: Install dependencies
+        run: yarn
+
+      - name: Build
+        run: yarn build
+
+      - name: Tests
+        run: yarn test
+        env:
+          RELAYER_API_KEY: ${{ secrets.RELAYER_API_KEY }}
+
+  account-abstraction-wrap:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./wraps/account-abstraction-kit
+    needs:
+      - relay-wrap
+      - protocol-wrap
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Read .nvmrc
+        run: echo ::set-output name=NVMRC::$(cat ../../nvmrc)
+        id: nvm
+
+      - name: Setup Node.js
+        uses: actions/setup-node@master
+        with:
+          node-version: "${{ steps.nvm.outputs.NVMRC }}"
+
+      - name: Install dependencies
+        run: yarn
+
+      - name: Build
+        run: yarn build

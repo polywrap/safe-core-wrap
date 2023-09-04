@@ -1,0 +1,33 @@
+## Playground Overview
+
+In this demo, you'll be executing scripts that showcase the AA Wrap's main value props: **multi-platform** and **composability**.
+
+<img src="../assets/fetch.png" width="300x">
+
+## Playground Setup
+
+First, you'll set up the demo.
+
+1. Create and configure a `.env` file with the following variables (you can use the `RPC_URL` and `RELAYER_API_KEY` provided below):
+
+```
+PRIVATE_KEY=
+RPC_URL="https://goerli.infura.io/v3/41fbecf847994df5a9652b1210effd8a"
+RELAYER_API_KEY=AiaCshYRyAUzTNfZZb8LftJaAl2SS3I8YwhJJXc5J7A_
+```
+
+2. You will need to add a private key too; if you don't have any, you can create one from [Metamask](https://support.metamask.io/hc/en-us/articles/360015289632-How-to-export-an-account-s-private-key) and input them as values for `PRIVATE_KEY`
+
+   > ⚠️ Make sure this account is one that you're only using for testing purposes!
+
+3. Supply your account with Goerli ETH in order to send transactions. You can use a [Goerli faucet](https://goerlifaucet.com/) to do this.
+
+4. Now you should be able to execute demos. Go to the any subfolder from the `playground` folder and check the respective README to know how to run in the respective language. Here is a list of the available script names
+
+## Available scripts
+
+| Script Name           | Description                                                                               |
+| --------------------- | ----------------------------------------------------------------------------------------- |
+| `deploy-safe`         | Deploys your Safe smart account                                                           |
+| `sponsor-transaction` | Execute a sponsored transaction. This transaction is paid by 1Balance Relayer from Gelato |
+| `paid-transaction`    | Execute a transaction that is paid from the ether or supported ERC20 in Safe              |

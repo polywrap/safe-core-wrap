@@ -1,0 +1,193 @@
+"""
+import {
+    Module,
+    Connection,
+    TxOptions,
+    Log,
+    TxRequest,
+    TxReceipt,
+    TxResponse,
+    StaticTxResult
+} into Ethers from "wrapscan.io/polywrap/ethers@1.1.1"
+import {
+    SafeSignature,
+    SafeTransaction,
+    SafeTransactionData,
+    TransactionOptions,
+    SafeTransactionDataPartial,
+    SafeTransactionOptions
+} from "../common/polywrap.graphql"
+"""
+type Env {
+  safeAddress: String!
+  connection: Ethers_Connection!
+}
+
+type Module {
+  createProxy(
+    address: String!
+    safeMasterCopyAddress: String!
+    initializer: String!
+    saltNonce: UInt32!
+    connection: Ethers_Connection
+    txOptions: Ethers_TxOptions
+  ): String!
+  proxyCreationCode(address: String!, connection: Ethers_Connection): String!
+
+  """
+  GnosisSafeContractEthers methods
+  """
+  getNonce(address: String!, connection: Ethers_Connection): BigInt!
+  getVersion(address: String!, connection: Ethers_Connection): String!
+  approvedHashes(
+    address: String!
+    ownerAddress: String!
+    hash: String!
+    connection: Ethers_Connection
+  ): BigInt!
+  approveHash(
+    safeAddress: String!
+    hash: String!
+    options: TransactionOptions
+    connection: Ethers_Connection
+  ): Ethers_TxReceipt!
+
+  getSafeContractNetworks(
+    version: String!
+    chainId: String!
+    isL1Safe: Boolean
+    filter: ContractNetworksFilter
+  ): ContractNetworksConfig!
+
+  encodeExecTransaction(
+    safeAddress: String!
+    safeTransaction: SafeTransaction!
+  ): String!
+
+  # Factory utilities
+  deploySafe(input: DeploymentInput!, txOptions: Ethers_TxOptions): String!
+  predictSafeAddress(input: DeploymentInput!): String!
+  encodeDeploySafe(input: DeploymentInput!): String!
+
+  safeIsDeployed(safeAddress: String!, connection: Ethers_Connection!): Boolean!
+  getSafeInitializer(config: SafeAccountConfig!): String!
+
+  # Manager utilities
+
+  """
+  Safe methods
+  """
+  createTransaction(tx: SafeTransactionDataPartial!): SafeTransaction!
+  createMultiSendTransaction(
+    txs: [SafeTransactionDataPartial!]!
+    options: SafeTransactionOptions
+    onlyCalls: Boolean
+    customMultiSendContractAddress: String
+  ): SafeTransaction! @env(required: true)
+  addSignature(tx: SafeTransaction!, signingMethod: String): SafeTransaction!
+    @env(required: true)
+  getTransactionHash(tx: SafeTransactionData!): String! @env(required: true)
+  signTransactionHash(hash: String!): SafeSignature! @env(required: true)
+  approveTransactionHash(
+    hash: String!
+    options: TransactionOptions
+  ): Ethers_TxReceipt! @env(required: true)
+  executeTransaction(
+    tx: SafeTransaction!
+    options: TransactionOptions
+  ): Ethers_TxReceipt! @env(required: true)
+  getOwnersWhoApprovedTx(hash: String!): [String!]! @env(required: true)
+  getSignature(
+    tx: SafeTransaction!
+    signingMethod: String
+    safeAddress: String!
+    connection: Ethers_Connection!
+  ): SafeTransaction!
+
+  """
+  Owner manager methods
+  """
+  getOwners(safeAddress: String!, connection: Ethers_Connection): [String!]!
+  getThreshold(safeAddress: String!, connection: Ethers_Connection): UInt32!
+  isOwner(
+    ownerAddress: String!
+    safeAddress: String!
+    connection: Ethers_Connection
+  ): Boolean!
+
+  """
+  Module manager methods
+  """
+  getModules: [String!]! @env(required: true)
+  isModuleEnabled(moduleAddress: String!): Boolean! @env(required: true)
+
+  """
+  Utilities for transactions
+  """
+  encodeEnableModuleData(moduleAddress: String!): String! @env(required: true)
+  encodeDisableModuleData(moduleAddress: String!): String! @env(required: true)
+  encodeMultiSendData(txs: [SafeTransactionDataPartial!]!): String!
+  encodeAddOwnerWithThresholdData(
+    ownerAddress: String!
+    threshold: UInt32
+  ): String! @env(required: true)
+  encodeRemoveOwnerData(ownerAddress: String!, threshold: UInt32): String!
+    @env(required: true)
+  encodeSwapOwnerData(
+    oldOwnerAddress: String!
+    newOwnerAddress: String!
+  ): String! @env(required: true)
+  encodeChangeThresholdData(threshold: UInt32!): String! @env(required: true)
+}
+
+type ContractNetworksConfig {
+  multiSendAddress: String
+  multiSendCallOnlyAddress: String
+  safeMasterCopyAddress: String
+  safeProxyFactoryAddress: String
+  fallbackHandlerAddress: String
+}
+
+type ContractNetworksFilter {
+  multiSendAddress: Boolean!
+  multiSendCallOnlyAddress: Boolean!
+  safeMasterCopyAddress: Boolean!
+  safeProxyFactoryAddress: Boolean!
+  fallbackHandlerAddress: Boolean!
+}
+
+type CustomContract {
+  proxyFactoryContract: String
+  safeFactoryContract: String
+}
+
+type DeploymentPayload {
+  safeContractAddress: String!
+  safeFactoryContractAddress: String!
+  initializer: String!
+  saltNonce: String!
+}
+
+type SafeAccountConfig {
+  owners: [String!]!
+  threshold: UInt!
+  to: String
+  data: String
+  fallbackHandler: String
+  paymentToken: String
+  payment: BigInt
+  paymentReceiver: String
+}
+
+type SafeDeploymentConfig {
+  saltNonce: String!
+  isL1Safe: Boolean
+  version: String
+}
+
+type DeploymentInput {
+  safeAccountConfig: SafeAccountConfig!
+  safeDeploymentConfig: SafeDeploymentConfig
+  customContractAddresses: CustomContract
+  connection: Ethers_Connection
+}
