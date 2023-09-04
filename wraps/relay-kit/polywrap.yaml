@@ -1,6 +1,6 @@
 format: 0.5.0
 project:
-  name: relay-kit
+  name: safe-relay-kit
   type: wasm/rust
 source:
   module: ./Cargo.toml

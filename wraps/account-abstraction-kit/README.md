@@ -1,27 +1,17 @@
 # Account Abstraction Kit Wrap
 
-The Safe AA Wrap is an implementation of the [Safe{Core} Account Abstraction SDK](https://docs.safe.global/learn/safe-core/safe-core-account-abstraction-sdk) in the form of a Polywrap wrap.
+The Account Abstraction Wrap is an implementation of the [Account Abstraction Kit](https://github.com/safe-global/safe-core-sdk/tree/main/packages/account-abstraction-kit) in the form of a Polywrap wrap.
 
-## Requirements
-
-To run the Safe AA wrap you'll need a Polywrap client in your application. See here for installation information: [https://docs.polywrap.io/clients](https://docs.polywrap.io/clients)
 
 ## Configuration
-
-The Safe AA Wrap allows you to pass a signer (through browser or with private key) in order to be able to deploy your Safe contract and call its functions.
-
-You will need to add the [ethereum provider plugin](https://github.com/polywrap/ethereum-wallet) to the Polywrap Client's config manually.
-You will also need to add the [datetime plugin](https://github.com/polywrap/datetime).
-
-You can configure this using the [Polywrap Client Config Builder](https://docs.polywrap.io/tutorials/use-wraps/configure-client):
+You will need to add the [ethereum wallet plugin](https://github.com/polywrap/ethereum-wallet) to the Polywrap Client's config manually. You can configure this using the [Polywrap Client Config Builder](https://docs.polywrap.io/tutorials/use-wraps/configure-client):
 
 ```javascript
 import {
-  ethereumProviderPlugin,
+  ethereumWalletPlugin,
   Connection,
   Connections,
-} from "@polywrap/ethereum-provider-js";
-import { dateTimePlugin } from "@polywrap/datetime-plugin-js";
+} from "@polywrap/ethereum-wallet-js";
 import { PolywrapClient, ClientConfigBuilder } from "@polywrap/client-js";
 
 const builder = new ClientConfigBuilder();
@@ -30,7 +20,7 @@ builder
   .addDefaults()
   .addPackages({
     // This adds the ethereum provider (wallet) plugin
-    "wrap://ens/wraps.eth:ethereum-provider@2.0.0": ethereumProviderPlugin({
+    "wrap://wrascan.io/polywrap/ethereum-wallet@1": ethereumWalletPlugin({
       connections: new Connections({
         networks: {
           goerli: new Connection({        
@@ -44,11 +34,9 @@ builder
         defaultNetwork: "goerli",
       }),
     }),
-    // This adds the datetime plugin
-    "wrap://ens/datetime.polywrap.eth": dateTimePlugin({}) as IWrapPackage,
   })
   // This URL should be replaced with the Wrap URL of the AA Wrap
-  .addEnv("wrap://wrapper/account-abstraction", {
+  .addEnv("wrapscan.io/polywrap/account-abstraction-kit@0.1", {
     connection: {
       networkNameOrChainId: "goerli", // Determines which network you're using
     },
@@ -62,7 +50,7 @@ const client = new PolywrapClient(config);
 
 const invocationResult = client.invoke({
   // This URI should be replaced with the Wrap URI of the AA Wrap
-  uri: "wrap://wrapper/account-abstraction",
+  uri: "wrapscan.io/polywrap/account-abstraction-kit@0.1",
   method: "relayTransaction",
   args: { ... }
 })
@@ -70,8 +58,8 @@ const invocationResult = client.invoke({
 
 ## Run!
 
-With your client successfully configured, you can now run any function on the UniV3 wrap with ease.
-See the examples below, or [take a look at the Safe AA wrap tests](https://github.com/cbrzn/account-abstraction-wrapper/tree/main/wraps/account-abstraction/src/__tests__) for invocation examples.
+With your client successfully configured, you can now run any function on the Account Abstraction Wrap with ease.
+See the examples below, or [take a look at the Safe AA wrap tests](https://github.com/polywrap/safe-core-wrap/tree/main/wraps/account-abstraction-kit/tests) for invocation examples.
 
 ## Examples
 
@@ -82,11 +70,11 @@ Since your Safe address is deterministic based on your wallet's address and a no
 ```javascript
 const addressResult = await client.invoke({
   // This URI should be replaced with the Wrap URI of the AA Wrap
-  uri: "wrap://wrapper/account-abstraction",
+  uri: "wrapscan.io/polywrap/account-abstraction-kit@0.1",
   method: "getSafeAddress",
   args: {
     config: {
-      saltNonce: "0x258802387238728372837283771" // Replace this with your own salt nonce
+      saltNonce: "0x2588023872383771" // Replace this with your own salt nonce
     }
   }
 });
@@ -95,11 +83,11 @@ const addressResult = await client.invoke({
 ### Relay Sponsored Transaction
 
 Let's assume we have a smart contract with a `store(uint256 num)` function deployed to the address `0x56535D1162011E54aa2F6B003d02Db171c17e41e`.
-If we want to, for example, invoke this function, we first need to encode it using our [Ethers Utils Wrap](https://github.com/polywrap/ethers):
+If we want to, for example, invoke this function, we first need to encode it using our [Ethers Wrap](https://github.com/polywrap/ethers):
 
 ```javascript
 const encodeResult = await client.invoke({
-  uri: "wrap://ens/ethers.wraps.eth:utils@0.1.0",
+  uri: "wrapscan.io/polywrap/ethers@1.1",
   method: "encodeFunction",
   args: {
     method: "function store(uint256 num) public",
@@ -110,7 +98,7 @@ const encodeResult = await client.invoke({
 });
 ```
 
-The Account Abstraction Wrapper's `relayTransaction` method allows you to make a transaction by performing the following steps:
+The Account Abstraction Wrap's `relayTransaction` method allows you to make a transaction by performing the following steps:
 
 1. It checks whether there's a deployed Safe contract on your predicted address.
 2. It deploys a Safe contract to the predicted address if there isn't one.
@@ -119,7 +107,7 @@ The Account Abstraction Wrapper's `relayTransaction` method allows you to make a
 ```javascript
 await client.invoke({
   // This URI should be replaced with the Wrap URI of the AA Wrap
-  uri: "wrap://wrapper/account-abstraction",
+  uri: "wrapscan.io/polywrap/account-abstraction-kit@0.1",
   method: "relayTransaction",
   args: {
     transaction: {
@@ -134,8 +122,8 @@ await client.invoke({
     },
     config: {
       // Replace this with your own salt nonce. This is used to deploy your safe contract if there is none.
-      // This is not required. If not supplied, the current date/time will be used to generate a salt nonce.
-      saltNonce: "0x258802387238728372837283771"
+      // This is not required. If not supplied, a default nonce will be used.
+      saltNonce: "0x2588023872383771"
     }
   }
 });

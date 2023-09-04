@@ -1,13 +1,5 @@
 # **Safe Core Wrap** &middot; [![license](https://img.shields.io/badge/license-MIT-blue)](https://shields.io)
 
-## Table of Contents
-
-- [The Safe Core Wrap](#the-account-abstraction-aa-wrap)
-- [Playground](#playground)
-  <!-- - [Multiplatform Support: Rust](#multiplatform-support-rust) -->
-  <!-- - [Scripts Explanation](#scripts-explanation) -->
-- [Contributing](./CONTRIBUTING.md)
-
 ## The Safe Core Wrap
 
 <img src="assets/multiplatform.png" width="500x">

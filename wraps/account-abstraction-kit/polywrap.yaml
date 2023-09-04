@@ -1,6 +1,6 @@
 format: 0.5.0
 project:
-  name: account-abstraction-kit
+  name: safe-account-abstraction-kit
   type: wasm/rust
 source:
   module: ./Cargo.toml

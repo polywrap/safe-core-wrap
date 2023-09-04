@@ -4,11 +4,6 @@ In this demo, you'll be executing scripts that showcase the AA Wrap's main value
 
 <img src="../assets/fetch.png" width="300x">
 
-## Table of Contents
-
-- [Playground set up](#playground-setup)
-- [Available scripts](#available-scripts)
-
 ## Playground Setup
 
 First, you'll set up the demo.

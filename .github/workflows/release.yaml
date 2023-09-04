@@ -8,6 +8,9 @@ on:
 
 jobs:
   protocol-wrap:
+    if: |
+      github.event.pull_request.merged &&
+      endsWith(github.event.pull_request.title, '/workflows/release')
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -38,6 +41,9 @@ jobs:
 
   relay-wrap:
     runs-on: ubuntu-latest
+    if: |
+      github.event.pull_request.merged &&
+      endsWith(github.event.pull_request.title, '/workflows/release')
     defaults:
       run:
         working-directory: ./wraps/relay-kit
@@ -102,9 +108,9 @@ jobs:
       - account-abstraction-wrap
     runs-on: ubuntu-latest
     steps:
-      uses: peter-evans/create-pull-request@v3
-      with:
-        branch: update-uri-pr-${{github.event.number}}
-        commit-message: "chore: update wrap uris"
-        title: "chore: update wrap uris"
-        body: "Triggered by: https://github.com/${{github.repository}}/pull/${{github.event.number}}"
+      - uses: peter-evans/create-pull-request@v3
+        with:
+          branch: update-uri-pr-${{github.event.number}}
+          commit-message: "chore: update wrap uris"
+          title: "chore: update wrap uris"
+          body: "Triggered by: https://github.com/${{github.repository}}/pull/${{github.event.number}}"
