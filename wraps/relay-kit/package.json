@@ -5,16 +5,10 @@
   "scripts": {
     "build": "polywrap build",
     "deploy": "polywrap deploy",
-    "pretest": "polywrap codegen -m tests/polywrap.app.yaml -g ./tests/wrap",
-    "test": "jest --runInBand --verbose"
+    "pretest": "polywrap codegen -m tests/polywrap.app.yaml -g ./tests/it/wrap",
+    "test": "cargo test --release"
   },
   "devDependencies": {
-    "@polywrap/client-js": "0.12.2",
-    "@types/jest": "26.0.8",
-    "dotenv": "16.0.3",
-    "jest": "26.6.3",
-    "polywrap": "0.11.3",
-    "ts-jest": "26.5.4",
-    "typescript": "4.9.5"
+    "polywrap": "0.11.3"
   }
 }
