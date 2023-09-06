@@ -1,9 +1,9 @@
 format: 0.4.0
 project:
   name: relay-kit-app
-  type: app/typescript
+  type: app/rust
 source:
-  schema: ./schema.graphql
+  schema: ./polywrap.app.graphql
   import_abis:
-    - uri: "wrapscan.io/polywrap/relay-kit@0.1.0"
+    - uri: "wrapscan.io/polywrap/safe-relay-kit@0.0.1"
       abi: "../build/wrap.info"

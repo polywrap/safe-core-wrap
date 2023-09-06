@@ -58,8 +58,14 @@ jobs:
       - name: Build
         run: yarn build
 
+      - name: Generate types for test
+        run: yarn pretest
+
+      - name: Clean cargo cache
+        run: sudo rm -rf ~/.cargo/registry
+
       - name: Tests
-        run: yarn test
+        run: cargo test --release
         env:
           RELAYER_API_KEY: ${{ secrets.RELAYER_API_KEY }}
 

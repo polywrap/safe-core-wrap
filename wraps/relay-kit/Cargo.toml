@@ -1,16 +1,19 @@
 [package]
-name = "relayer-wrapper"
+name = "relay-kit-wrap"
 version = "0.0.1"
-description = "Relayer rust wrapper"
+description = "Relay Kit Wrap"
 authors = ["Polywrap"]
-repository = "https://github.com/polywrap/monorepo"
+repository = "https://github.com/polywrap/safe-core-wrap"
 license = "MIT"
 edition = "2021"
 
 [dependencies]
-polywrap-wasm-rs = { version = "0.11.2" }
+polywrap-wasm-rs = { version = "0.11.3" }
 polywrap_msgpack_serde = "0.0.2-beta.7"
 serde = { version = "1.0", features = ["derive"] }
+
+[dev-dependencies]
+polywrap = "0.1.9-beta.2"
 
 [lib]
 crate-type = ["cdylib"]

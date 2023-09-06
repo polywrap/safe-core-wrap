@@ -1,0 +1,6 @@
+{
+    "rust-analyzer.linkedProjects": [
+      "./wraps/account-abstraction-kit/Cargo.toml",
+      "./wraps/relay-kit/Cargo.toml",
+    ]
+  }
