@@ -5,8 +5,7 @@
   "scripts": {
     "build": "polywrap build",
     "deploy": "polywrap deploy",
-    "pretest": "polywrap codegen -m tests/polywrap.app.yaml -g ./tests/it/wrap",
-    "test": "cargo test --release"
+    "pretest": "polywrap codegen -m tests/polywrap.app.yaml -g ./tests/it/wrap"
   },
   "devDependencies": {
     "polywrap": "0.11.3"
