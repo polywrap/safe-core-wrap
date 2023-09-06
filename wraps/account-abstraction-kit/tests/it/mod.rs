@@ -8,6 +8,7 @@ use std::{collections::HashMap, env, sync::Arc};
 use wrap::types::EthersConnection;
 
 mod paid_transaction;
+mod sponsored_transaction;
 mod wrap;
 
 #[derive(Serialize)]
