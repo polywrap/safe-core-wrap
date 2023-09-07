@@ -5,11 +5,11 @@ use polywrap_msgpack_serde::BigInt;
 use super::{
     get_client,
     wrap::types::{
+        AccountAbstraction, AccountAbstractionArgsRelayTransaction,
         AccountAbstractionDeploymentParameters, AccountAbstractionMetaTransactionData,
-        AccountAbstractionMetaTransactionOptions, AccountAbstractionModule,
-        AccountAbstractionModuleArgsRelayTransaction, EthersModule, EthersModuleArgsEncodeFunction,
-        EthersModuleArgsEstimateTransactionGas, EthersTxRequest, RelayerModule,
-        RelayerModuleArgsGetEstimateFee,
+        AccountAbstractionMetaTransactionOptions, Ethers, EthersArgsEncodeFunction,
+        EthersArgsEstimateTransactionGas, EthersTxRequest, InvokeOptions, Relayer,
+        RelayerArgsGetEstimateFee,
     },
     SALT_NONCE,
 };
@@ -18,17 +18,21 @@ use super::{
 fn paid_transaction() {
     let client = get_client();
 
-    let ethers = EthersModule::new(None, Some(client.clone()), None);
-    let account_abstraction = AccountAbstractionModule::new(None, Some(client.clone()), None);
-    let relay = RelayerModule::new(None, Some(client.clone()), None);
+    let invoke_options = InvokeOptions {
+        uri: None,
+        client: Some(client),
+        env: None,
+    };
+
+    let ethers = Ethers::new(Some(invoke_options.clone()));
+    let account_abstraction = AccountAbstraction::new(Some(invoke_options.clone()));
+    let relay = Relayer::new(Some(invoke_options.clone()));
 
     let encode_function = ethers.encode_function(
-        &EthersModuleArgsEncodeFunction {
+        &EthersArgsEncodeFunction {
             method: "function store(uint256 num) public".to_string(),
             args: Some(vec!["9227".to_string()]),
         },
-        None,
-        None,
         None,
     );
 
@@ -43,7 +47,7 @@ fn paid_transaction() {
         operation: None,
     };
     let gas_limit = ethers.estimate_transaction_gas(
-        &EthersModuleArgsEstimateTransactionGas {
+        &EthersArgsEstimateTransactionGas {
             tx: EthersTxRequest {
                 to: Some(meta_transaction.clone().to),
                 from: None,
@@ -61,20 +65,16 @@ fn paid_transaction() {
             connection: None,
         },
         None,
-        None,
-        None,
     );
 
     let gas_limit_with_buffer: BigInt = gas_limit.unwrap().parse::<BigInt>().unwrap().add(150000);
 
     let estimation = relay.get_estimate_fee(
-        &RelayerModuleArgsGetEstimateFee {
+        &RelayerArgsGetEstimateFee {
             chain_id: 5,
             gas_limit: gas_limit_with_buffer.to_string(),
             gas_token: None,
         },
-        None,
-        None,
         None,
     );
 
@@ -88,7 +88,7 @@ fn paid_transaction() {
     };
 
     let response = account_abstraction.relay_transaction(
-        &AccountAbstractionModuleArgsRelayTransaction {
+        &AccountAbstractionArgsRelayTransaction {
             transaction: meta_transaction,
             options: meta_transaction_options,
             config: Some(AccountAbstractionDeploymentParameters {
@@ -96,8 +96,6 @@ fn paid_transaction() {
                 custom_contract_addresses: None,
             }),
         },
-        None,
-        None,
         None,
     );
     assert!(response.is_ok());

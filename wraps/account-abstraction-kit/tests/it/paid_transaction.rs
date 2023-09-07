@@ -5,12 +5,12 @@ use polywrap_msgpack_serde::BigInt;
 use super::{
     get_client,
     wrap::types::{
-        AccountAbstractionDeploymentParameters, AccountAbstractionMetaTransactionData,
-        AccountAbstractionMetaTransactionOptions, AccountAbstractionModule,
-        AccountAbstractionModuleArgsGetSafeAddress, AccountAbstractionModuleArgsRelayTransaction,
-        EthersModule, EthersModuleArgsEncodeFunction, EthersModuleArgsEstimateTransactionGas,
-        EthersModuleArgsGetBalance, EthersModuleArgsSendTransactionAndWait, EthersModuleArgsToEth,
-        EthersTxRequest, RelayerModule, RelayerModuleArgsGetEstimateFee,
+        AccountAbstraction, AccountAbstractionArgsGetSafeAddress,
+        AccountAbstractionArgsRelayTransaction, AccountAbstractionDeploymentParameters,
+        AccountAbstractionMetaTransactionData, AccountAbstractionMetaTransactionOptions, Ethers,
+        EthersArgsEncodeFunction, EthersArgsEstimateTransactionGas, EthersArgsGetBalance,
+        EthersArgsSendTransactionAndWait, EthersArgsToEth, EthersTxRequest, InvokeOptions, Relayer,
+        RelayerArgsGetEstimateFee,
     },
     SALT_NONCE,
 };
@@ -19,17 +19,20 @@ use super::{
 fn paid_transaction() {
     let client = get_client();
 
-    let ethers = EthersModule::new(None, Some(client.clone()), None);
-    let account_abstraction = AccountAbstractionModule::new(None, Some(client.clone()), None);
-    let relay = RelayerModule::new(None, Some(client.clone()), None);
+    let invoke_options = InvokeOptions {
+        uri: None,
+        client: Some(client),
+        env: None,
+    };
+    let ethers = Ethers::new(Some(invoke_options.clone()));
+    let account_abstraction = AccountAbstraction::new(Some(invoke_options.clone()));
+    let relay = Relayer::new(Some(invoke_options.clone()));
 
     let encode_function = ethers.encode_function(
-        &EthersModuleArgsEncodeFunction {
+        &EthersArgsEncodeFunction {
             method: "function store(uint256 num) public".to_string(),
             args: Some(vec!["987".to_string()]),
         },
-        None,
-        None,
         None,
     );
 
@@ -44,7 +47,7 @@ fn paid_transaction() {
         operation: None,
     };
     let gas_limit = ethers.estimate_transaction_gas(
-        &EthersModuleArgsEstimateTransactionGas {
+        &EthersArgsEstimateTransactionGas {
             tx: EthersTxRequest {
                 to: Some(meta_transaction.clone().to),
                 from: None,
@@ -62,43 +65,35 @@ fn paid_transaction() {
             connection: None,
         },
         None,
-        None,
-        None,
     );
 
     let gas_limit_with_buffer: BigInt = gas_limit.unwrap().parse::<BigInt>().unwrap().add(150000);
 
     let estimation = relay.get_estimate_fee(
-        &RelayerModuleArgsGetEstimateFee {
+        &RelayerArgsGetEstimateFee {
             chain_id: 5,
             gas_limit: gas_limit_with_buffer.to_string(),
             gas_token: None,
         },
         None,
-        None,
-        None,
     );
 
     let safe_address = account_abstraction.get_safe_address(
-        &AccountAbstractionModuleArgsGetSafeAddress {
+        &AccountAbstractionArgsGetSafeAddress {
             config: Some(AccountAbstractionDeploymentParameters {
                 salt_nonce: Some(SALT_NONCE.to_string()),
                 custom_contract_addresses: None,
             }),
         },
         None,
-        None,
-        None,
     );
 
     let safe_balance = ethers.get_balance(
-        &EthersModuleArgsGetBalance {
+        &EthersArgsGetBalance {
             address: safe_address.clone().unwrap(),
             block_tag: None,
             connection: None,
         },
-        None,
-        None,
         None,
     );
 
@@ -108,11 +103,9 @@ fn paid_transaction() {
     let safe_balance = BigInt::from_str(&safe_balance.unwrap()).unwrap();
     if safe_balance.lt(&estimation_in_wei) {
         let value_in_eth = ethers.to_eth(
-            &EthersModuleArgsToEth {
+            &EthersArgsToEth {
                 wei: estimation_in_wei.to_string(),
             },
-            None,
-            None,
             None,
         );
         if value_in_eth.is_err() {
@@ -123,7 +116,7 @@ fn paid_transaction() {
         }
         println!("Funding the safe with {} ETH", value_in_eth.unwrap());
         let fund_tx = ethers.send_transaction_and_wait(
-            &EthersModuleArgsSendTransactionAndWait {
+            &EthersArgsSendTransactionAndWait {
                 tx: EthersTxRequest {
                     value: Some(estimation_in_wei.to_string()),
                     to: Some(safe_address.unwrap()),
@@ -141,8 +134,6 @@ fn paid_transaction() {
                 connection: None,
             },
             None,
-            None,
-            None,
         );
         if fund_tx.is_err() {
             panic!("Error funding the safe: {}", fund_tx.unwrap_err());
@@ -157,7 +148,7 @@ fn paid_transaction() {
     };
 
     let response = account_abstraction.relay_transaction(
-        &AccountAbstractionModuleArgsRelayTransaction {
+        &AccountAbstractionArgsRelayTransaction {
             transaction: meta_transaction,
             options: meta_transaction_options,
             config: Some(AccountAbstractionDeploymentParameters {
@@ -165,8 +156,6 @@ fn paid_transaction() {
                 custom_contract_addresses: None,
             }),
         },
-        None,
-        None,
         None,
     );
     assert!(response.is_ok());

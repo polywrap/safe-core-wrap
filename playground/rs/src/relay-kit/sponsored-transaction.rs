@@ -5,42 +5,44 @@ use std::ops::Add;
 
 use num_bigint::BigInt;
 use safe_core_wrap_playground::{
-    create_transaction, get_client, AccountAbstractionDeploymentParameters,
-    AccountAbstractionMetaTransactionOptions, AccountAbstractionModule,
-    AccountAbstractionModuleArgsGetSafeAddress, AccountAbstractionModuleArgsRelayTransaction,
-    EthersModule, RelayerModule, RelayerModuleArgsGetEstimateFee, SALT_NONCE,
+    create_transaction, get_client, AccountAbstraction, AccountAbstractionArgsGetSafeAddress,
+    AccountAbstractionArgsRelayTransaction, AccountAbstractionDeploymentParameters,
+    AccountAbstractionMetaTransactionOptions, Ethers, InvokeOptions, Relayer,
+    RelayerArgsGetEstimateFee, SALT_NONCE,
 };
 
 pub fn main() {
     let client = get_client();
 
-    let ethers = EthersModule::new(None, Some(client.clone()), None);
-    let relay = RelayerModule::new(None, Some(client.clone()), None);
-    let account_abstraction = AccountAbstractionModule::new(None, Some(client.clone()), None);
+    let invoke_options = InvokeOptions {
+        uri: None,
+        client: Some(client),
+        env: None,
+    };
+
+    let ethers = Ethers::new(Some(invoke_options.clone()));
+    let relay = Relayer::new(Some(invoke_options.clone()));
+    let account_abstraction = AccountAbstraction::new(Some(invoke_options.clone()));
     let (transaction, gas_limit) = create_transaction(ethers.clone());
 
     let safe_address = account_abstraction.get_safe_address(
-        &AccountAbstractionModuleArgsGetSafeAddress {
+        &AccountAbstractionArgsGetSafeAddress {
             config: Some(AccountAbstractionDeploymentParameters {
                 salt_nonce: Some(SALT_NONCE.to_string()),
                 custom_contract_addresses: None,
             }),
         },
         None,
-        None,
-        None,
     );
 
     println!("Predicted safe address: {}", safe_address.clone().unwrap());
 
     let estimation = relay.get_estimate_fee(
-        &RelayerModuleArgsGetEstimateFee {
+        &RelayerArgsGetEstimateFee {
             chain_id: 5,
             gas_limit,
             gas_token: None,
         },
-        None,
-        None,
         None,
     );
 
@@ -60,7 +62,7 @@ pub fn main() {
     };
 
     let response = account_abstraction.relay_transaction(
-        &AccountAbstractionModuleArgsRelayTransaction {
+        &AccountAbstractionArgsRelayTransaction {
             transaction,
             options: meta_transaction_options,
             config: Some(AccountAbstractionDeploymentParameters {
@@ -68,8 +70,6 @@ pub fn main() {
                 custom_contract_addresses: None,
             }),
         },
-        None,
-        None,
         None,
     );
     if response.is_err() {

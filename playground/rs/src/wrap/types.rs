@@ -11,6 +11,13 @@ use std::sync::Arc;
 
 pub type BigInt = String;
 
+#[derive(Clone)]
+pub struct InvokeOptions {
+    pub uri: Option<Uri>,
+    pub client: Option<Arc<dyn Invoker>>,
+    pub env: Option<Vec<u8>> 
+}
+
 // Env START //
 
 // Env END //
@@ -453,6 +460,21 @@ pub struct SafeEthersLog {
 
 // Imported envs START //
 
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct AccountAbstractionEnv {
+    pub connection: Option<AccountAbstractionEthersConnection>,
+}
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct RelayerEnv {
+    #[serde(rename = "relayerApiKey")]
+    pub relayer_api_key: String,
+}
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct SafeEnv {
+    #[serde(rename = "safeAddress")]
+    pub safe_address: String,
+    pub connection: SafeEthersConnection,
+}
 // Imported envs END //
 
 // Imported enums START //
@@ -475,7 +497,7 @@ pub enum SafeOperationType {
 
 // URI: "wrapscan.io/polywrap/account-abstraction-kit@0.1.0" //
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct AccountAbstractionModuleArgsRelayTransaction {
+pub struct AccountAbstractionArgsRelayTransaction {
     pub transaction: AccountAbstractionMetaTransactionData,
     pub options: AccountAbstractionMetaTransactionOptions,
     pub config: Option<AccountAbstractionDeploymentParameters>,
@@ -483,44 +505,63 @@ pub struct AccountAbstractionModuleArgsRelayTransaction {
 
 // URI: "wrapscan.io/polywrap/account-abstraction-kit@0.1.0" //
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct AccountAbstractionModuleArgsGetSafeAddress {
+pub struct AccountAbstractionArgsGetSafeAddress {
     pub config: Option<AccountAbstractionDeploymentParameters>,
 }
 
 #[derive(Clone)]
-pub struct AccountAbstractionModule {
-    uri: Uri,
-    invoker: Arc<dyn Invoker>,
-    env: Option<Vec<u8>>
+pub struct AccountAbstraction {
+    pub uri: Uri,
+    pub invoker: Arc<dyn Invoker>,
+    pub env: Option<Vec<u8>>
 }
 
-impl AccountAbstractionModule {
-    pub fn new(uri: Option<Uri>, invoker: Option<Arc<dyn Invoker>>, env: Option<Vec<u8>>) -> AccountAbstractionModule {
+impl AccountAbstraction {
+    pub fn new(invoke_options: Option<InvokeOptions>) -> AccountAbstraction {
         let mut config = PolywrapClientConfig::new();
         config.add(SystemClientConfig::default().into());
         config.add(Web3ClientConfig::default().into());
         let client = PolywrapClient::new(config.build());
 
-        let _uri = uri.unwrap_or(uri!("wrapscan.io/polywrap/account-abstraction-kit@0.1.0"));
-        let _invoker = invoker.unwrap_or(Arc::new(client));
-        let _env = env;
+        let default_client = Arc::new(client);
+        let default_uri = uri!("wrapscan.io/polywrap/account-abstraction-kit@0.1.0");
+        let (_uri, _invoker, _env) = if let Some(invoke_option) = invoke_options {
+            let _uri = if let Some(uri) = invoke_option.uri {
+                uri
+            } else {
+                default_uri
+            };
 
-        AccountAbstractionModule {
+            let _invoker = if let Some(invoker) = invoke_option.client {
+                invoker
+            } else {
+                default_client
+            };
+
+            (_uri, _invoker, invoke_option.env)
+        } else {
+            (default_uri, default_client as Arc<dyn Invoker>, None)
+        };
+
+        AccountAbstraction {
             uri: _uri,
             invoker: _invoker,
             env: _env,
         }
     }
 
-    pub fn relay_transaction(&self, args: &AccountAbstractionModuleArgsRelayTransaction, uri: Option<Uri>, invoker: Option<Arc<dyn Invoker>>, env: Option<Vec<u8>>) -> Result<String, Error> {
-        let _uri = uri.unwrap_or(self.uri.clone());
-        let _invoker = invoker.unwrap_or(self.invoker.clone());
-        let _env = match &env {
-            Some(e) => Some(e.as_slice()),
-            None => match &self.env {
-                Some(e) => Some(e.as_slice()),
-                None => None,
-            },
+    pub fn default_uri() -> Uri {
+        uri!("wrapscan.io/polywrap/account-abstraction-kit@0.1.0")
+    }
+
+    pub fn relay_transaction(&self, args: &AccountAbstractionArgsRelayTransaction, invoke_options: Option<InvokeOptions>) -> Result<String, Error> {
+        let (_uri, _invoker, _env) = if let Some(invoke_option) = invoke_options {
+            let uri = invoke_option.uri.clone().unwrap_or_else(|| self.uri.clone());
+            let invoker = invoke_option.client.clone().unwrap_or_else(|| self.invoker.clone());
+            let env = invoke_option.env.clone().or_else(|| self.env.clone());
+            (uri, invoker, env)
+        } else {
+            (self.uri.clone(), self.invoker.clone(), self.env.clone())
         };
 
         let serialized_args = to_vec(&args).unwrap();
@@ -529,22 +570,21 @@ impl AccountAbstractionModule {
             &_uri,
             "relayTransaction",
             opt_args,
-            _env,
+            _env.as_ref().map(|v| v.as_slice()),
             None
         )?;
 
         from_slice(result.as_slice()).map_err(Error::MsgpackError)
     }
 
-    pub fn get_safe_address(&self, args: &AccountAbstractionModuleArgsGetSafeAddress, uri: Option<Uri>, invoker: Option<Arc<dyn Invoker>>, env: Option<Vec<u8>>) -> Result<String, Error> {
-        let _uri = uri.unwrap_or(self.uri.clone());
-        let _invoker = invoker.unwrap_or(self.invoker.clone());
-        let _env = match &env {
-            Some(e) => Some(e.as_slice()),
-            None => match &self.env {
-                Some(e) => Some(e.as_slice()),
-                None => None,
-            },
+    pub fn get_safe_address(&self, args: &AccountAbstractionArgsGetSafeAddress, invoke_options: Option<InvokeOptions>) -> Result<String, Error> {
+        let (_uri, _invoker, _env) = if let Some(invoke_option) = invoke_options {
+            let uri = invoke_option.uri.clone().unwrap_or_else(|| self.uri.clone());
+            let invoker = invoke_option.client.clone().unwrap_or_else(|| self.invoker.clone());
+            let env = invoke_option.env.clone().or_else(|| self.env.clone());
+            (uri, invoker, env)
+        } else {
+            (self.uri.clone(), self.invoker.clone(), self.env.clone())
         };
 
         let serialized_args = to_vec(&args).unwrap();
@@ -553,7 +593,7 @@ impl AccountAbstractionModule {
             &_uri,
             "getSafeAddress",
             opt_args,
-            _env,
+            _env.as_ref().map(|v| v.as_slice()),
             None
         )?;
 
@@ -562,19 +602,19 @@ impl AccountAbstractionModule {
 }
 // URI: "wrapscan.io/polywrap/ethers@1.1.1" //
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct EthersModuleArgsGetChainId {
+pub struct EthersArgsGetChainId {
     pub connection: Option<EthersConnection>,
 }
 
 // URI: "wrapscan.io/polywrap/ethers@1.1.1" //
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct EthersModuleArgsGetSignerAddress {
+pub struct EthersArgsGetSignerAddress {
     pub connection: Option<EthersConnection>,
 }
 
 // URI: "wrapscan.io/polywrap/ethers@1.1.1" //
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct EthersModuleArgsGetSignerBalance {
+pub struct EthersArgsGetSignerBalance {
     #[serde(rename = "blockTag")]
     pub block_tag: Option<BigInt>,
     pub connection: Option<EthersConnection>,
@@ -582,19 +622,19 @@ pub struct EthersModuleArgsGetSignerBalance {
 
 // URI: "wrapscan.io/polywrap/ethers@1.1.1" //
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct EthersModuleArgsGetGasPrice {
+pub struct EthersArgsGetGasPrice {
     pub connection: Option<EthersConnection>,
 }
 
 // URI: "wrapscan.io/polywrap/ethers@1.1.1" //
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct EthersModuleArgsEstimateEip1559Fees {
+pub struct EthersArgsEstimateEip1559Fees {
     pub connection: Option<EthersConnection>,
 }
 
 // URI: "wrapscan.io/polywrap/ethers@1.1.1" //
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct EthersModuleArgsGetSignerTransactionCount {
+pub struct EthersArgsGetSignerTransactionCount {
     #[serde(rename = "blockTag")]
     pub block_tag: Option<BigInt>,
     pub connection: Option<EthersConnection>,
@@ -602,14 +642,14 @@ pub struct EthersModuleArgsGetSignerTransactionCount {
 
 // URI: "wrapscan.io/polywrap/ethers@1.1.1" //
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct EthersModuleArgsCheckAddress {
+pub struct EthersArgsCheckAddress {
     pub address: String,
     pub connection: Option<EthersConnection>,
 }
 
 // URI: "wrapscan.io/polywrap/ethers@1.1.1" //
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct EthersModuleArgsCallContractView {
+pub struct EthersArgsCallContractView {
     pub address: String,
     pub method: String,
     pub args: Option<Vec<String>>,
@@ -618,7 +658,7 @@ pub struct EthersModuleArgsCallContractView {
 
 // URI: "wrapscan.io/polywrap/ethers@1.1.1" //
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct EthersModuleArgsCallContractStatic {
+pub struct EthersArgsCallContractStatic {
     pub address: String,
     pub method: String,
     pub args: Option<Vec<String>>,
@@ -628,7 +668,7 @@ pub struct EthersModuleArgsCallContractStatic {
 
 // URI: "wrapscan.io/polywrap/ethers@1.1.1" //
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct EthersModuleArgsGetBalance {
+pub struct EthersArgsGetBalance {
     pub address: String,
     #[serde(rename = "blockTag")]
     pub block_tag: Option<BigInt>,
@@ -637,14 +677,14 @@ pub struct EthersModuleArgsGetBalance {
 
 // URI: "wrapscan.io/polywrap/ethers@1.1.1" //
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct EthersModuleArgsGetTransaction {
+pub struct EthersArgsGetTransaction {
     pub hash: String,
     pub connection: Option<EthersConnection>,
 }
 
 // URI: "wrapscan.io/polywrap/ethers@1.1.1" //
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct EthersModuleArgsSendRpc {
+pub struct EthersArgsSendRpc {
     pub method: String,
     pub params: Vec<String>,
     pub connection: Option<EthersConnection>,
@@ -652,14 +692,14 @@ pub struct EthersModuleArgsSendRpc {
 
 // URI: "wrapscan.io/polywrap/ethers@1.1.1" //
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct EthersModuleArgsEstimateTransactionGas {
+pub struct EthersArgsEstimateTransactionGas {
     pub tx: EthersTxRequest,
     pub connection: Option<EthersConnection>,
 }
 
 // URI: "wrapscan.io/polywrap/ethers@1.1.1" //
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct EthersModuleArgsAwaitTransaction {
+pub struct EthersArgsAwaitTransaction {
     #[serde(rename = "txHash")]
     pub tx_hash: String,
     pub confirmations: u32,
@@ -669,21 +709,21 @@ pub struct EthersModuleArgsAwaitTransaction {
 
 // URI: "wrapscan.io/polywrap/ethers@1.1.1" //
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct EthersModuleArgsSendTransaction {
+pub struct EthersArgsSendTransaction {
     pub tx: EthersTxRequest,
     pub connection: Option<EthersConnection>,
 }
 
 // URI: "wrapscan.io/polywrap/ethers@1.1.1" //
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct EthersModuleArgsSendTransactionAndWait {
+pub struct EthersArgsSendTransactionAndWait {
     pub tx: EthersTxRequest,
     pub connection: Option<EthersConnection>,
 }
 
 // URI: "wrapscan.io/polywrap/ethers@1.1.1" //
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct EthersModuleArgsDeployContract {
+pub struct EthersArgsDeployContract {
     pub abi: String,
     pub bytecode: String,
     pub args: Option<Vec<String>>,
@@ -693,7 +733,7 @@ pub struct EthersModuleArgsDeployContract {
 
 // URI: "wrapscan.io/polywrap/ethers@1.1.1" //
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct EthersModuleArgsEstimateContractCallGas {
+pub struct EthersArgsEstimateContractCallGas {
     pub address: String,
     pub method: String,
     pub args: Option<Vec<String>>,
@@ -703,7 +743,7 @@ pub struct EthersModuleArgsEstimateContractCallGas {
 
 // URI: "wrapscan.io/polywrap/ethers@1.1.1" //
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct EthersModuleArgsCallContractMethod {
+pub struct EthersArgsCallContractMethod {
     pub address: String,
     pub method: String,
     pub args: Option<Vec<String>>,
@@ -713,7 +753,7 @@ pub struct EthersModuleArgsCallContractMethod {
 
 // URI: "wrapscan.io/polywrap/ethers@1.1.1" //
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct EthersModuleArgsCallContractMethodAndWait {
+pub struct EthersArgsCallContractMethodAndWait {
     pub address: String,
     pub method: String,
     pub args: Option<Vec<String>>,
@@ -723,35 +763,35 @@ pub struct EthersModuleArgsCallContractMethodAndWait {
 
 // URI: "wrapscan.io/polywrap/ethers@1.1.1" //
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct EthersModuleArgsSignMessage {
+pub struct EthersArgsSignMessage {
     pub message: String,
     pub connection: Option<EthersConnection>,
 }
 
 // URI: "wrapscan.io/polywrap/ethers@1.1.1" //
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct EthersModuleArgsSignMessageBytes {
+pub struct EthersArgsSignMessageBytes {
     pub bytes: ByteBuf,
     pub connection: Option<EthersConnection>,
 }
 
 // URI: "wrapscan.io/polywrap/ethers@1.1.1" //
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct EthersModuleArgsSignTransaction {
+pub struct EthersArgsSignTransaction {
     pub tx: EthersTxRequest,
     pub connection: Option<EthersConnection>,
 }
 
 // URI: "wrapscan.io/polywrap/ethers@1.1.1" //
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct EthersModuleArgsSignTypedData {
+pub struct EthersArgsSignTypedData {
     pub payload: JSONString,
     pub connection: Option<EthersConnection>,
 }
 
 // URI: "wrapscan.io/polywrap/ethers@1.1.1" //
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct EthersModuleArgsGenerateCreate2Address {
+pub struct EthersArgsGenerateCreate2Address {
     pub address: String,
     pub salt: String,
     #[serde(rename = "initCode")]
@@ -760,19 +800,19 @@ pub struct EthersModuleArgsGenerateCreate2Address {
 
 // URI: "wrapscan.io/polywrap/ethers@1.1.1" //
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct EthersModuleArgsKeccak256BytesEncodePacked {
+pub struct EthersArgsKeccak256BytesEncodePacked {
     pub value: String,
 }
 
 // URI: "wrapscan.io/polywrap/ethers@1.1.1" //
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct EthersModuleArgsKeccak256 {
+pub struct EthersArgsKeccak256 {
     pub value: String,
 }
 
 // URI: "wrapscan.io/polywrap/ethers@1.1.1" //
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct EthersModuleArgsEncodeMetaTransaction {
+pub struct EthersArgsEncodeMetaTransaction {
     pub operation: Option<BigInt>,
     pub to: String,
     pub value: BigInt,
@@ -781,71 +821,90 @@ pub struct EthersModuleArgsEncodeMetaTransaction {
 
 // URI: "wrapscan.io/polywrap/ethers@1.1.1" //
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct EthersModuleArgsEncodeParams {
+pub struct EthersArgsEncodeParams {
     pub types: Vec<String>,
     pub values: Vec<String>,
 }
 
 // URI: "wrapscan.io/polywrap/ethers@1.1.1" //
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct EthersModuleArgsEncodeFunction {
+pub struct EthersArgsEncodeFunction {
     pub method: String,
     pub args: Option<Vec<String>>,
 }
 
 // URI: "wrapscan.io/polywrap/ethers@1.1.1" //
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct EthersModuleArgsToWei {
+pub struct EthersArgsToWei {
     pub eth: String,
 }
 
 // URI: "wrapscan.io/polywrap/ethers@1.1.1" //
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct EthersModuleArgsToEth {
+pub struct EthersArgsToEth {
     pub wei: String,
 }
 
 // URI: "wrapscan.io/polywrap/ethers@1.1.1" //
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct EthersModuleArgsSolidityPack {
+pub struct EthersArgsSolidityPack {
     pub types: Vec<String>,
     pub values: Vec<String>,
 }
 
 #[derive(Clone)]
-pub struct EthersModule {
-    uri: Uri,
-    invoker: Arc<dyn Invoker>,
-    env: Option<Vec<u8>>
+pub struct Ethers {
+    pub uri: Uri,
+    pub invoker: Arc<dyn Invoker>,
+    pub env: Option<Vec<u8>>
 }
 
-impl EthersModule {
-    pub fn new(uri: Option<Uri>, invoker: Option<Arc<dyn Invoker>>, env: Option<Vec<u8>>) -> EthersModule {
+impl Ethers {
+    pub fn new(invoke_options: Option<InvokeOptions>) -> Ethers {
         let mut config = PolywrapClientConfig::new();
         config.add(SystemClientConfig::default().into());
         config.add(Web3ClientConfig::default().into());
         let client = PolywrapClient::new(config.build());
 
-        let _uri = uri.unwrap_or(uri!("wrapscan.io/polywrap/ethers@1.1.1"));
-        let _invoker = invoker.unwrap_or(Arc::new(client));
-        let _env = env;
+        let default_client = Arc::new(client);
+        let default_uri = uri!("wrapscan.io/polywrap/ethers@1.1.1");
+        let (_uri, _invoker, _env) = if let Some(invoke_option) = invoke_options {
+            let _uri = if let Some(uri) = invoke_option.uri {
+                uri
+            } else {
+                default_uri
+            };
 
-        EthersModule {
+            let _invoker = if let Some(invoker) = invoke_option.client {
+                invoker
+            } else {
+                default_client
+            };
+
+            (_uri, _invoker, invoke_option.env)
+        } else {
+            (default_uri, default_client as Arc<dyn Invoker>, None)
+        };
+
+        Ethers {
             uri: _uri,
             invoker: _invoker,
             env: _env,
         }
     }
 
-    pub fn get_chain_id(&self, args: &EthersModuleArgsGetChainId, uri: Option<Uri>, invoker: Option<Arc<dyn Invoker>>, env: Option<Vec<u8>>) -> Result<String, Error> {
-        let _uri = uri.unwrap_or(self.uri.clone());
-        let _invoker = invoker.unwrap_or(self.invoker.clone());
-        let _env = match &env {
-            Some(e) => Some(e.as_slice()),
-            None => match &self.env {
-                Some(e) => Some(e.as_slice()),
-                None => None,
-            },
+    pub fn default_uri() -> Uri {
+        uri!("wrapscan.io/polywrap/ethers@1.1.1")
+    }
+
+    pub fn get_chain_id(&self, args: &EthersArgsGetChainId, invoke_options: Option<InvokeOptions>) -> Result<String, Error> {
+        let (_uri, _invoker, _env) = if let Some(invoke_option) = invoke_options {
+            let uri = invoke_option.uri.clone().unwrap_or_else(|| self.uri.clone());
+            let invoker = invoke_option.client.clone().unwrap_or_else(|| self.invoker.clone());
+            let env = invoke_option.env.clone().or_else(|| self.env.clone());
+            (uri, invoker, env)
+        } else {
+            (self.uri.clone(), self.invoker.clone(), self.env.clone())
         };
 
         let serialized_args = to_vec(&args).unwrap();
@@ -854,22 +913,21 @@ impl EthersModule {
             &_uri,
             "getChainId",
             opt_args,
-            _env,
+            _env.as_ref().map(|v| v.as_slice()),
             None
         )?;
 
         from_slice(result.as_slice()).map_err(Error::MsgpackError)
     }
 
-    pub fn get_signer_address(&self, args: &EthersModuleArgsGetSignerAddress, uri: Option<Uri>, invoker: Option<Arc<dyn Invoker>>, env: Option<Vec<u8>>) -> Result<String, Error> {
-        let _uri = uri.unwrap_or(self.uri.clone());
-        let _invoker = invoker.unwrap_or(self.invoker.clone());
-        let _env = match &env {
-            Some(e) => Some(e.as_slice()),
-            None => match &self.env {
-                Some(e) => Some(e.as_slice()),
-                None => None,
-            },
+    pub fn get_signer_address(&self, args: &EthersArgsGetSignerAddress, invoke_options: Option<InvokeOptions>) -> Result<String, Error> {
+        let (_uri, _invoker, _env) = if let Some(invoke_option) = invoke_options {
+            let uri = invoke_option.uri.clone().unwrap_or_else(|| self.uri.clone());
+            let invoker = invoke_option.client.clone().unwrap_or_else(|| self.invoker.clone());
+            let env = invoke_option.env.clone().or_else(|| self.env.clone());
+            (uri, invoker, env)
+        } else {
+            (self.uri.clone(), self.invoker.clone(), self.env.clone())
         };
 
         let serialized_args = to_vec(&args).unwrap();
@@ -878,22 +936,21 @@ impl EthersModule {
             &_uri,
             "getSignerAddress",
             opt_args,
-            _env,
+            _env.as_ref().map(|v| v.as_slice()),
             None
         )?;
 
         from_slice(result.as_slice()).map_err(Error::MsgpackError)
     }
 
-    pub fn get_signer_balance(&self, args: &EthersModuleArgsGetSignerBalance, uri: Option<Uri>, invoker: Option<Arc<dyn Invoker>>, env: Option<Vec<u8>>) -> Result<BigInt, Error> {
-        let _uri = uri.unwrap_or(self.uri.clone());
-        let _invoker = invoker.unwrap_or(self.invoker.clone());
-        let _env = match &env {
-            Some(e) => Some(e.as_slice()),
-            None => match &self.env {
-                Some(e) => Some(e.as_slice()),
-                None => None,
-            },
+    pub fn get_signer_balance(&self, args: &EthersArgsGetSignerBalance, invoke_options: Option<InvokeOptions>) -> Result<BigInt, Error> {
+        let (_uri, _invoker, _env) = if let Some(invoke_option) = invoke_options {
+            let uri = invoke_option.uri.clone().unwrap_or_else(|| self.uri.clone());
+            let invoker = invoke_option.client.clone().unwrap_or_else(|| self.invoker.clone());
+            let env = invoke_option.env.clone().or_else(|| self.env.clone());
+            (uri, invoker, env)
+        } else {
+            (self.uri.clone(), self.invoker.clone(), self.env.clone())
         };
 
         let serialized_args = to_vec(&args).unwrap();
@@ -902,22 +959,21 @@ impl EthersModule {
             &_uri,
             "getSignerBalance",
             opt_args,
-            _env,
+            _env.as_ref().map(|v| v.as_slice()),
             None
         )?;
 
         from_slice(result.as_slice()).map_err(Error::MsgpackError)
     }
 
-    pub fn get_gas_price(&self, args: &EthersModuleArgsGetGasPrice, uri: Option<Uri>, invoker: Option<Arc<dyn Invoker>>, env: Option<Vec<u8>>) -> Result<BigInt, Error> {
-        let _uri = uri.unwrap_or(self.uri.clone());
-        let _invoker = invoker.unwrap_or(self.invoker.clone());
-        let _env = match &env {
-            Some(e) => Some(e.as_slice()),
-            None => match &self.env {
-                Some(e) => Some(e.as_slice()),
-                None => None,
-            },
+    pub fn get_gas_price(&self, args: &EthersArgsGetGasPrice, invoke_options: Option<InvokeOptions>) -> Result<BigInt, Error> {
+        let (_uri, _invoker, _env) = if let Some(invoke_option) = invoke_options {
+            let uri = invoke_option.uri.clone().unwrap_or_else(|| self.uri.clone());
+            let invoker = invoke_option.client.clone().unwrap_or_else(|| self.invoker.clone());
+            let env = invoke_option.env.clone().or_else(|| self.env.clone());
+            (uri, invoker, env)
+        } else {
+            (self.uri.clone(), self.invoker.clone(), self.env.clone())
         };
 
         let serialized_args = to_vec(&args).unwrap();
@@ -926,22 +982,21 @@ impl EthersModule {
             &_uri,
             "getGasPrice",
             opt_args,
-            _env,
+            _env.as_ref().map(|v| v.as_slice()),
             None
         )?;
 
         from_slice(result.as_slice()).map_err(Error::MsgpackError)
     }
 
-    pub fn estimate_eip1559_fees(&self, args: &EthersModuleArgsEstimateEip1559Fees, uri: Option<Uri>, invoker: Option<Arc<dyn Invoker>>, env: Option<Vec<u8>>) -> Result<EthersEip1559FeesEstimate, Error> {
-        let _uri = uri.unwrap_or(self.uri.clone());
-        let _invoker = invoker.unwrap_or(self.invoker.clone());
-        let _env = match &env {
-            Some(e) => Some(e.as_slice()),
-            None => match &self.env {
-                Some(e) => Some(e.as_slice()),
-                None => None,
-            },
+    pub fn estimate_eip1559_fees(&self, args: &EthersArgsEstimateEip1559Fees, invoke_options: Option<InvokeOptions>) -> Result<EthersEip1559FeesEstimate, Error> {
+        let (_uri, _invoker, _env) = if let Some(invoke_option) = invoke_options {
+            let uri = invoke_option.uri.clone().unwrap_or_else(|| self.uri.clone());
+            let invoker = invoke_option.client.clone().unwrap_or_else(|| self.invoker.clone());
+            let env = invoke_option.env.clone().or_else(|| self.env.clone());
+            (uri, invoker, env)
+        } else {
+            (self.uri.clone(), self.invoker.clone(), self.env.clone())
         };
 
         let serialized_args = to_vec(&args).unwrap();
@@ -950,22 +1005,21 @@ impl EthersModule {
             &_uri,
             "estimateEip1559Fees",
             opt_args,
-            _env,
+            _env.as_ref().map(|v| v.as_slice()),
             None
         )?;
 
         from_slice(result.as_slice()).map_err(Error::MsgpackError)
     }
 
-    pub fn get_signer_transaction_count(&self, args: &EthersModuleArgsGetSignerTransactionCount, uri: Option<Uri>, invoker: Option<Arc<dyn Invoker>>, env: Option<Vec<u8>>) -> Result<BigInt, Error> {
-        let _uri = uri.unwrap_or(self.uri.clone());
-        let _invoker = invoker.unwrap_or(self.invoker.clone());
-        let _env = match &env {
-            Some(e) => Some(e.as_slice()),
-            None => match &self.env {
-                Some(e) => Some(e.as_slice()),
-                None => None,
-            },
+    pub fn get_signer_transaction_count(&self, args: &EthersArgsGetSignerTransactionCount, invoke_options: Option<InvokeOptions>) -> Result<BigInt, Error> {
+        let (_uri, _invoker, _env) = if let Some(invoke_option) = invoke_options {
+            let uri = invoke_option.uri.clone().unwrap_or_else(|| self.uri.clone());
+            let invoker = invoke_option.client.clone().unwrap_or_else(|| self.invoker.clone());
+            let env = invoke_option.env.clone().or_else(|| self.env.clone());
+            (uri, invoker, env)
+        } else {
+            (self.uri.clone(), self.invoker.clone(), self.env.clone())
         };
 
         let serialized_args = to_vec(&args).unwrap();
@@ -974,22 +1028,21 @@ impl EthersModule {
             &_uri,
             "getSignerTransactionCount",
             opt_args,
-            _env,
+            _env.as_ref().map(|v| v.as_slice()),
             None
         )?;
 
         from_slice(result.as_slice()).map_err(Error::MsgpackError)
     }
 
-    pub fn check_address(&self, args: &EthersModuleArgsCheckAddress, uri: Option<Uri>, invoker: Option<Arc<dyn Invoker>>, env: Option<Vec<u8>>) -> Result<bool, Error> {
-        let _uri = uri.unwrap_or(self.uri.clone());
-        let _invoker = invoker.unwrap_or(self.invoker.clone());
-        let _env = match &env {
-            Some(e) => Some(e.as_slice()),
-            None => match &self.env {
-                Some(e) => Some(e.as_slice()),
-                None => None,
-            },
+    pub fn check_address(&self, args: &EthersArgsCheckAddress, invoke_options: Option<InvokeOptions>) -> Result<bool, Error> {
+        let (_uri, _invoker, _env) = if let Some(invoke_option) = invoke_options {
+            let uri = invoke_option.uri.clone().unwrap_or_else(|| self.uri.clone());
+            let invoker = invoke_option.client.clone().unwrap_or_else(|| self.invoker.clone());
+            let env = invoke_option.env.clone().or_else(|| self.env.clone());
+            (uri, invoker, env)
+        } else {
+            (self.uri.clone(), self.invoker.clone(), self.env.clone())
         };
 
         let serialized_args = to_vec(&args).unwrap();
@@ -998,22 +1051,21 @@ impl EthersModule {
             &_uri,
             "checkAddress",
             opt_args,
-            _env,
+            _env.as_ref().map(|v| v.as_slice()),
             None
         )?;
 
         from_slice(result.as_slice()).map_err(Error::MsgpackError)
     }
 
-    pub fn call_contract_view(&self, args: &EthersModuleArgsCallContractView, uri: Option<Uri>, invoker: Option<Arc<dyn Invoker>>, env: Option<Vec<u8>>) -> Result<String, Error> {
-        let _uri = uri.unwrap_or(self.uri.clone());
-        let _invoker = invoker.unwrap_or(self.invoker.clone());
-        let _env = match &env {
-            Some(e) => Some(e.as_slice()),
-            None => match &self.env {
-                Some(e) => Some(e.as_slice()),
-                None => None,
-            },
+    pub fn call_contract_view(&self, args: &EthersArgsCallContractView, invoke_options: Option<InvokeOptions>) -> Result<String, Error> {
+        let (_uri, _invoker, _env) = if let Some(invoke_option) = invoke_options {
+            let uri = invoke_option.uri.clone().unwrap_or_else(|| self.uri.clone());
+            let invoker = invoke_option.client.clone().unwrap_or_else(|| self.invoker.clone());
+            let env = invoke_option.env.clone().or_else(|| self.env.clone());
+            (uri, invoker, env)
+        } else {
+            (self.uri.clone(), self.invoker.clone(), self.env.clone())
         };
 
         let serialized_args = to_vec(&args).unwrap();
@@ -1022,22 +1074,21 @@ impl EthersModule {
             &_uri,
             "callContractView",
             opt_args,
-            _env,
+            _env.as_ref().map(|v| v.as_slice()),
             None
         )?;
 
         from_slice(result.as_slice()).map_err(Error::MsgpackError)
     }
 
-    pub fn call_contract_static(&self, args: &EthersModuleArgsCallContractStatic, uri: Option<Uri>, invoker: Option<Arc<dyn Invoker>>, env: Option<Vec<u8>>) -> Result<EthersStaticTxResult, Error> {
-        let _uri = uri.unwrap_or(self.uri.clone());
-        let _invoker = invoker.unwrap_or(self.invoker.clone());
-        let _env = match &env {
-            Some(e) => Some(e.as_slice()),
-            None => match &self.env {
-                Some(e) => Some(e.as_slice()),
-                None => None,
-            },
+    pub fn call_contract_static(&self, args: &EthersArgsCallContractStatic, invoke_options: Option<InvokeOptions>) -> Result<EthersStaticTxResult, Error> {
+        let (_uri, _invoker, _env) = if let Some(invoke_option) = invoke_options {
+            let uri = invoke_option.uri.clone().unwrap_or_else(|| self.uri.clone());
+            let invoker = invoke_option.client.clone().unwrap_or_else(|| self.invoker.clone());
+            let env = invoke_option.env.clone().or_else(|| self.env.clone());
+            (uri, invoker, env)
+        } else {
+            (self.uri.clone(), self.invoker.clone(), self.env.clone())
         };
 
         let serialized_args = to_vec(&args).unwrap();
@@ -1046,22 +1097,21 @@ impl EthersModule {
             &_uri,
             "callContractStatic",
             opt_args,
-            _env,
+            _env.as_ref().map(|v| v.as_slice()),
             None
         )?;
 
         from_slice(result.as_slice()).map_err(Error::MsgpackError)
     }
 
-    pub fn get_balance(&self, args: &EthersModuleArgsGetBalance, uri: Option<Uri>, invoker: Option<Arc<dyn Invoker>>, env: Option<Vec<u8>>) -> Result<BigInt, Error> {
-        let _uri = uri.unwrap_or(self.uri.clone());
-        let _invoker = invoker.unwrap_or(self.invoker.clone());
-        let _env = match &env {
-            Some(e) => Some(e.as_slice()),
-            None => match &self.env {
-                Some(e) => Some(e.as_slice()),
-                None => None,
-            },
+    pub fn get_balance(&self, args: &EthersArgsGetBalance, invoke_options: Option<InvokeOptions>) -> Result<BigInt, Error> {
+        let (_uri, _invoker, _env) = if let Some(invoke_option) = invoke_options {
+            let uri = invoke_option.uri.clone().unwrap_or_else(|| self.uri.clone());
+            let invoker = invoke_option.client.clone().unwrap_or_else(|| self.invoker.clone());
+            let env = invoke_option.env.clone().or_else(|| self.env.clone());
+            (uri, invoker, env)
+        } else {
+            (self.uri.clone(), self.invoker.clone(), self.env.clone())
         };
 
         let serialized_args = to_vec(&args).unwrap();
@@ -1070,22 +1120,21 @@ impl EthersModule {
             &_uri,
             "getBalance",
             opt_args,
-            _env,
+            _env.as_ref().map(|v| v.as_slice()),
             None
         )?;
 
         from_slice(result.as_slice()).map_err(Error::MsgpackError)
     }
 
-    pub fn get_transaction(&self, args: &EthersModuleArgsGetTransaction, uri: Option<Uri>, invoker: Option<Arc<dyn Invoker>>, env: Option<Vec<u8>>) -> Result<EthersTxResponse, Error> {
-        let _uri = uri.unwrap_or(self.uri.clone());
-        let _invoker = invoker.unwrap_or(self.invoker.clone());
-        let _env = match &env {
-            Some(e) => Some(e.as_slice()),
-            None => match &self.env {
-                Some(e) => Some(e.as_slice()),
-                None => None,
-            },
+    pub fn get_transaction(&self, args: &EthersArgsGetTransaction, invoke_options: Option<InvokeOptions>) -> Result<EthersTxResponse, Error> {
+        let (_uri, _invoker, _env) = if let Some(invoke_option) = invoke_options {
+            let uri = invoke_option.uri.clone().unwrap_or_else(|| self.uri.clone());
+            let invoker = invoke_option.client.clone().unwrap_or_else(|| self.invoker.clone());
+            let env = invoke_option.env.clone().or_else(|| self.env.clone());
+            (uri, invoker, env)
+        } else {
+            (self.uri.clone(), self.invoker.clone(), self.env.clone())
         };
 
         let serialized_args = to_vec(&args).unwrap();
@@ -1094,22 +1143,21 @@ impl EthersModule {
             &_uri,
             "getTransaction",
             opt_args,
-            _env,
+            _env.as_ref().map(|v| v.as_slice()),
             None
         )?;
 
         from_slice(result.as_slice()).map_err(Error::MsgpackError)
     }
 
-    pub fn send_rpc(&self, args: &EthersModuleArgsSendRpc, uri: Option<Uri>, invoker: Option<Arc<dyn Invoker>>, env: Option<Vec<u8>>) -> Result<String, Error> {
-        let _uri = uri.unwrap_or(self.uri.clone());
-        let _invoker = invoker.unwrap_or(self.invoker.clone());
-        let _env = match &env {
-            Some(e) => Some(e.as_slice()),
-            None => match &self.env {
-                Some(e) => Some(e.as_slice()),
-                None => None,
-            },
+    pub fn send_rpc(&self, args: &EthersArgsSendRpc, invoke_options: Option<InvokeOptions>) -> Result<String, Error> {
+        let (_uri, _invoker, _env) = if let Some(invoke_option) = invoke_options {
+            let uri = invoke_option.uri.clone().unwrap_or_else(|| self.uri.clone());
+            let invoker = invoke_option.client.clone().unwrap_or_else(|| self.invoker.clone());
+            let env = invoke_option.env.clone().or_else(|| self.env.clone());
+            (uri, invoker, env)
+        } else {
+            (self.uri.clone(), self.invoker.clone(), self.env.clone())
         };
 
         let serialized_args = to_vec(&args).unwrap();
@@ -1118,22 +1166,21 @@ impl EthersModule {
             &_uri,
             "sendRpc",
             opt_args,
-            _env,
+            _env.as_ref().map(|v| v.as_slice()),
             None
         )?;
 
         from_slice(result.as_slice()).map_err(Error::MsgpackError)
     }
 
-    pub fn estimate_transaction_gas(&self, args: &EthersModuleArgsEstimateTransactionGas, uri: Option<Uri>, invoker: Option<Arc<dyn Invoker>>, env: Option<Vec<u8>>) -> Result<BigInt, Error> {
-        let _uri = uri.unwrap_or(self.uri.clone());
-        let _invoker = invoker.unwrap_or(self.invoker.clone());
-        let _env = match &env {
-            Some(e) => Some(e.as_slice()),
-            None => match &self.env {
-                Some(e) => Some(e.as_slice()),
-                None => None,
-            },
+    pub fn estimate_transaction_gas(&self, args: &EthersArgsEstimateTransactionGas, invoke_options: Option<InvokeOptions>) -> Result<BigInt, Error> {
+        let (_uri, _invoker, _env) = if let Some(invoke_option) = invoke_options {
+            let uri = invoke_option.uri.clone().unwrap_or_else(|| self.uri.clone());
+            let invoker = invoke_option.client.clone().unwrap_or_else(|| self.invoker.clone());
+            let env = invoke_option.env.clone().or_else(|| self.env.clone());
+            (uri, invoker, env)
+        } else {
+            (self.uri.clone(), self.invoker.clone(), self.env.clone())
         };
 
         let serialized_args = to_vec(&args).unwrap();
@@ -1142,22 +1189,21 @@ impl EthersModule {
             &_uri,
             "estimateTransactionGas",
             opt_args,
-            _env,
+            _env.as_ref().map(|v| v.as_slice()),
             None
         )?;
 
         from_slice(result.as_slice()).map_err(Error::MsgpackError)
     }
 
-    pub fn await_transaction(&self, args: &EthersModuleArgsAwaitTransaction, uri: Option<Uri>, invoker: Option<Arc<dyn Invoker>>, env: Option<Vec<u8>>) -> Result<EthersTxReceipt, Error> {
-        let _uri = uri.unwrap_or(self.uri.clone());
-        let _invoker = invoker.unwrap_or(self.invoker.clone());
-        let _env = match &env {
-            Some(e) => Some(e.as_slice()),
-            None => match &self.env {
-                Some(e) => Some(e.as_slice()),
-                None => None,
-            },
+    pub fn await_transaction(&self, args: &EthersArgsAwaitTransaction, invoke_options: Option<InvokeOptions>) -> Result<EthersTxReceipt, Error> {
+        let (_uri, _invoker, _env) = if let Some(invoke_option) = invoke_options {
+            let uri = invoke_option.uri.clone().unwrap_or_else(|| self.uri.clone());
+            let invoker = invoke_option.client.clone().unwrap_or_else(|| self.invoker.clone());
+            let env = invoke_option.env.clone().or_else(|| self.env.clone());
+            (uri, invoker, env)
+        } else {
+            (self.uri.clone(), self.invoker.clone(), self.env.clone())
         };
 
         let serialized_args = to_vec(&args).unwrap();
@@ -1166,22 +1212,21 @@ impl EthersModule {
             &_uri,
             "awaitTransaction",
             opt_args,
-            _env,
+            _env.as_ref().map(|v| v.as_slice()),
             None
         )?;
 
         from_slice(result.as_slice()).map_err(Error::MsgpackError)
     }
 
-    pub fn send_transaction(&self, args: &EthersModuleArgsSendTransaction, uri: Option<Uri>, invoker: Option<Arc<dyn Invoker>>, env: Option<Vec<u8>>) -> Result<EthersTxResponse, Error> {
-        let _uri = uri.unwrap_or(self.uri.clone());
-        let _invoker = invoker.unwrap_or(self.invoker.clone());
-        let _env = match &env {
-            Some(e) => Some(e.as_slice()),
-            None => match &self.env {
-                Some(e) => Some(e.as_slice()),
-                None => None,
-            },
+    pub fn send_transaction(&self, args: &EthersArgsSendTransaction, invoke_options: Option<InvokeOptions>) -> Result<EthersTxResponse, Error> {
+        let (_uri, _invoker, _env) = if let Some(invoke_option) = invoke_options {
+            let uri = invoke_option.uri.clone().unwrap_or_else(|| self.uri.clone());
+            let invoker = invoke_option.client.clone().unwrap_or_else(|| self.invoker.clone());
+            let env = invoke_option.env.clone().or_else(|| self.env.clone());
+            (uri, invoker, env)
+        } else {
+            (self.uri.clone(), self.invoker.clone(), self.env.clone())
         };
 
         let serialized_args = to_vec(&args).unwrap();
@@ -1190,22 +1235,21 @@ impl EthersModule {
             &_uri,
             "sendTransaction",
             opt_args,
-            _env,
+            _env.as_ref().map(|v| v.as_slice()),
             None
         )?;
 
         from_slice(result.as_slice()).map_err(Error::MsgpackError)
     }
 
-    pub fn send_transaction_and_wait(&self, args: &EthersModuleArgsSendTransactionAndWait, uri: Option<Uri>, invoker: Option<Arc<dyn Invoker>>, env: Option<Vec<u8>>) -> Result<EthersTxReceipt, Error> {
-        let _uri = uri.unwrap_or(self.uri.clone());
-        let _invoker = invoker.unwrap_or(self.invoker.clone());
-        let _env = match &env {
-            Some(e) => Some(e.as_slice()),
-            None => match &self.env {
-                Some(e) => Some(e.as_slice()),
-                None => None,
-            },
+    pub fn send_transaction_and_wait(&self, args: &EthersArgsSendTransactionAndWait, invoke_options: Option<InvokeOptions>) -> Result<EthersTxReceipt, Error> {
+        let (_uri, _invoker, _env) = if let Some(invoke_option) = invoke_options {
+            let uri = invoke_option.uri.clone().unwrap_or_else(|| self.uri.clone());
+            let invoker = invoke_option.client.clone().unwrap_or_else(|| self.invoker.clone());
+            let env = invoke_option.env.clone().or_else(|| self.env.clone());
+            (uri, invoker, env)
+        } else {
+            (self.uri.clone(), self.invoker.clone(), self.env.clone())
         };
 
         let serialized_args = to_vec(&args).unwrap();
@@ -1214,22 +1258,21 @@ impl EthersModule {
             &_uri,
             "sendTransactionAndWait",
             opt_args,
-            _env,
+            _env.as_ref().map(|v| v.as_slice()),
             None
         )?;
 
         from_slice(result.as_slice()).map_err(Error::MsgpackError)
     }
 
-    pub fn deploy_contract(&self, args: &EthersModuleArgsDeployContract, uri: Option<Uri>, invoker: Option<Arc<dyn Invoker>>, env: Option<Vec<u8>>) -> Result<String, Error> {
-        let _uri = uri.unwrap_or(self.uri.clone());
-        let _invoker = invoker.unwrap_or(self.invoker.clone());
-        let _env = match &env {
-            Some(e) => Some(e.as_slice()),
-            None => match &self.env {
-                Some(e) => Some(e.as_slice()),
-                None => None,
-            },
+    pub fn deploy_contract(&self, args: &EthersArgsDeployContract, invoke_options: Option<InvokeOptions>) -> Result<String, Error> {
+        let (_uri, _invoker, _env) = if let Some(invoke_option) = invoke_options {
+            let uri = invoke_option.uri.clone().unwrap_or_else(|| self.uri.clone());
+            let invoker = invoke_option.client.clone().unwrap_or_else(|| self.invoker.clone());
+            let env = invoke_option.env.clone().or_else(|| self.env.clone());
+            (uri, invoker, env)
+        } else {
+            (self.uri.clone(), self.invoker.clone(), self.env.clone())
         };
 
         let serialized_args = to_vec(&args).unwrap();
@@ -1238,22 +1281,21 @@ impl EthersModule {
             &_uri,
             "deployContract",
             opt_args,
-            _env,
+            _env.as_ref().map(|v| v.as_slice()),
             None
         )?;
 
         from_slice(result.as_slice()).map_err(Error::MsgpackError)
     }
 
-    pub fn estimate_contract_call_gas(&self, args: &EthersModuleArgsEstimateContractCallGas, uri: Option<Uri>, invoker: Option<Arc<dyn Invoker>>, env: Option<Vec<u8>>) -> Result<BigInt, Error> {
-        let _uri = uri.unwrap_or(self.uri.clone());
-        let _invoker = invoker.unwrap_or(self.invoker.clone());
-        let _env = match &env {
-            Some(e) => Some(e.as_slice()),
-            None => match &self.env {
-                Some(e) => Some(e.as_slice()),
-                None => None,
-            },
+    pub fn estimate_contract_call_gas(&self, args: &EthersArgsEstimateContractCallGas, invoke_options: Option<InvokeOptions>) -> Result<BigInt, Error> {
+        let (_uri, _invoker, _env) = if let Some(invoke_option) = invoke_options {
+            let uri = invoke_option.uri.clone().unwrap_or_else(|| self.uri.clone());
+            let invoker = invoke_option.client.clone().unwrap_or_else(|| self.invoker.clone());
+            let env = invoke_option.env.clone().or_else(|| self.env.clone());
+            (uri, invoker, env)
+        } else {
+            (self.uri.clone(), self.invoker.clone(), self.env.clone())
         };
 
         let serialized_args = to_vec(&args).unwrap();
@@ -1262,22 +1304,21 @@ impl EthersModule {
             &_uri,
             "estimateContractCallGas",
             opt_args,
-            _env,
+            _env.as_ref().map(|v| v.as_slice()),
             None
         )?;
 
         from_slice(result.as_slice()).map_err(Error::MsgpackError)
     }
 
-    pub fn call_contract_method(&self, args: &EthersModuleArgsCallContractMethod, uri: Option<Uri>, invoker: Option<Arc<dyn Invoker>>, env: Option<Vec<u8>>) -> Result<EthersTxResponse, Error> {
-        let _uri = uri.unwrap_or(self.uri.clone());
-        let _invoker = invoker.unwrap_or(self.invoker.clone());
-        let _env = match &env {
-            Some(e) => Some(e.as_slice()),
-            None => match &self.env {
-                Some(e) => Some(e.as_slice()),
-                None => None,
-            },
+    pub fn call_contract_method(&self, args: &EthersArgsCallContractMethod, invoke_options: Option<InvokeOptions>) -> Result<EthersTxResponse, Error> {
+        let (_uri, _invoker, _env) = if let Some(invoke_option) = invoke_options {
+            let uri = invoke_option.uri.clone().unwrap_or_else(|| self.uri.clone());
+            let invoker = invoke_option.client.clone().unwrap_or_else(|| self.invoker.clone());
+            let env = invoke_option.env.clone().or_else(|| self.env.clone());
+            (uri, invoker, env)
+        } else {
+            (self.uri.clone(), self.invoker.clone(), self.env.clone())
         };
 
         let serialized_args = to_vec(&args).unwrap();
@@ -1286,22 +1327,21 @@ impl EthersModule {
             &_uri,
             "callContractMethod",
             opt_args,
-            _env,
+            _env.as_ref().map(|v| v.as_slice()),
             None
         )?;
 
         from_slice(result.as_slice()).map_err(Error::MsgpackError)
     }
 
-    pub fn call_contract_method_and_wait(&self, args: &EthersModuleArgsCallContractMethodAndWait, uri: Option<Uri>, invoker: Option<Arc<dyn Invoker>>, env: Option<Vec<u8>>) -> Result<EthersTxReceipt, Error> {
-        let _uri = uri.unwrap_or(self.uri.clone());
-        let _invoker = invoker.unwrap_or(self.invoker.clone());
-        let _env = match &env {
-            Some(e) => Some(e.as_slice()),
-            None => match &self.env {
-                Some(e) => Some(e.as_slice()),
-                None => None,
-            },
+    pub fn call_contract_method_and_wait(&self, args: &EthersArgsCallContractMethodAndWait, invoke_options: Option<InvokeOptions>) -> Result<EthersTxReceipt, Error> {
+        let (_uri, _invoker, _env) = if let Some(invoke_option) = invoke_options {
+            let uri = invoke_option.uri.clone().unwrap_or_else(|| self.uri.clone());
+            let invoker = invoke_option.client.clone().unwrap_or_else(|| self.invoker.clone());
+            let env = invoke_option.env.clone().or_else(|| self.env.clone());
+            (uri, invoker, env)
+        } else {
+            (self.uri.clone(), self.invoker.clone(), self.env.clone())
         };
 
         let serialized_args = to_vec(&args).unwrap();
@@ -1310,22 +1350,21 @@ impl EthersModule {
             &_uri,
             "callContractMethodAndWait",
             opt_args,
-            _env,
+            _env.as_ref().map(|v| v.as_slice()),
             None
         )?;
 
         from_slice(result.as_slice()).map_err(Error::MsgpackError)
     }
 
-    pub fn sign_message(&self, args: &EthersModuleArgsSignMessage, uri: Option<Uri>, invoker: Option<Arc<dyn Invoker>>, env: Option<Vec<u8>>) -> Result<String, Error> {
-        let _uri = uri.unwrap_or(self.uri.clone());
-        let _invoker = invoker.unwrap_or(self.invoker.clone());
-        let _env = match &env {
-            Some(e) => Some(e.as_slice()),
-            None => match &self.env {
-                Some(e) => Some(e.as_slice()),
-                None => None,
-            },
+    pub fn sign_message(&self, args: &EthersArgsSignMessage, invoke_options: Option<InvokeOptions>) -> Result<String, Error> {
+        let (_uri, _invoker, _env) = if let Some(invoke_option) = invoke_options {
+            let uri = invoke_option.uri.clone().unwrap_or_else(|| self.uri.clone());
+            let invoker = invoke_option.client.clone().unwrap_or_else(|| self.invoker.clone());
+            let env = invoke_option.env.clone().or_else(|| self.env.clone());
+            (uri, invoker, env)
+        } else {
+            (self.uri.clone(), self.invoker.clone(), self.env.clone())
         };
 
         let serialized_args = to_vec(&args).unwrap();
@@ -1334,22 +1373,21 @@ impl EthersModule {
             &_uri,
             "signMessage",
             opt_args,
-            _env,
+            _env.as_ref().map(|v| v.as_slice()),
             None
         )?;
 
         from_slice(result.as_slice()).map_err(Error::MsgpackError)
     }
 
-    pub fn sign_message_bytes(&self, args: &EthersModuleArgsSignMessageBytes, uri: Option<Uri>, invoker: Option<Arc<dyn Invoker>>, env: Option<Vec<u8>>) -> Result<String, Error> {
-        let _uri = uri.unwrap_or(self.uri.clone());
-        let _invoker = invoker.unwrap_or(self.invoker.clone());
-        let _env = match &env {
-            Some(e) => Some(e.as_slice()),
-            None => match &self.env {
-                Some(e) => Some(e.as_slice()),
-                None => None,
-            },
+    pub fn sign_message_bytes(&self, args: &EthersArgsSignMessageBytes, invoke_options: Option<InvokeOptions>) -> Result<String, Error> {
+        let (_uri, _invoker, _env) = if let Some(invoke_option) = invoke_options {
+            let uri = invoke_option.uri.clone().unwrap_or_else(|| self.uri.clone());
+            let invoker = invoke_option.client.clone().unwrap_or_else(|| self.invoker.clone());
+            let env = invoke_option.env.clone().or_else(|| self.env.clone());
+            (uri, invoker, env)
+        } else {
+            (self.uri.clone(), self.invoker.clone(), self.env.clone())
         };
 
         let serialized_args = to_vec(&args).unwrap();
@@ -1358,22 +1396,21 @@ impl EthersModule {
             &_uri,
             "signMessageBytes",
             opt_args,
-            _env,
+            _env.as_ref().map(|v| v.as_slice()),
             None
         )?;
 
         from_slice(result.as_slice()).map_err(Error::MsgpackError)
     }
 
-    pub fn sign_transaction(&self, args: &EthersModuleArgsSignTransaction, uri: Option<Uri>, invoker: Option<Arc<dyn Invoker>>, env: Option<Vec<u8>>) -> Result<String, Error> {
-        let _uri = uri.unwrap_or(self.uri.clone());
-        let _invoker = invoker.unwrap_or(self.invoker.clone());
-        let _env = match &env {
-            Some(e) => Some(e.as_slice()),
-            None => match &self.env {
-                Some(e) => Some(e.as_slice()),
-                None => None,
-            },
+    pub fn sign_transaction(&self, args: &EthersArgsSignTransaction, invoke_options: Option<InvokeOptions>) -> Result<String, Error> {
+        let (_uri, _invoker, _env) = if let Some(invoke_option) = invoke_options {
+            let uri = invoke_option.uri.clone().unwrap_or_else(|| self.uri.clone());
+            let invoker = invoke_option.client.clone().unwrap_or_else(|| self.invoker.clone());
+            let env = invoke_option.env.clone().or_else(|| self.env.clone());
+            (uri, invoker, env)
+        } else {
+            (self.uri.clone(), self.invoker.clone(), self.env.clone())
         };
 
         let serialized_args = to_vec(&args).unwrap();
@@ -1382,22 +1419,21 @@ impl EthersModule {
             &_uri,
             "signTransaction",
             opt_args,
-            _env,
+            _env.as_ref().map(|v| v.as_slice()),
             None
         )?;
 
         from_slice(result.as_slice()).map_err(Error::MsgpackError)
     }
 
-    pub fn sign_typed_data(&self, args: &EthersModuleArgsSignTypedData, uri: Option<Uri>, invoker: Option<Arc<dyn Invoker>>, env: Option<Vec<u8>>) -> Result<String, Error> {
-        let _uri = uri.unwrap_or(self.uri.clone());
-        let _invoker = invoker.unwrap_or(self.invoker.clone());
-        let _env = match &env {
-            Some(e) => Some(e.as_slice()),
-            None => match &self.env {
-                Some(e) => Some(e.as_slice()),
-                None => None,
-            },
+    pub fn sign_typed_data(&self, args: &EthersArgsSignTypedData, invoke_options: Option<InvokeOptions>) -> Result<String, Error> {
+        let (_uri, _invoker, _env) = if let Some(invoke_option) = invoke_options {
+            let uri = invoke_option.uri.clone().unwrap_or_else(|| self.uri.clone());
+            let invoker = invoke_option.client.clone().unwrap_or_else(|| self.invoker.clone());
+            let env = invoke_option.env.clone().or_else(|| self.env.clone());
+            (uri, invoker, env)
+        } else {
+            (self.uri.clone(), self.invoker.clone(), self.env.clone())
         };
 
         let serialized_args = to_vec(&args).unwrap();
@@ -1406,22 +1442,21 @@ impl EthersModule {
             &_uri,
             "signTypedData",
             opt_args,
-            _env,
+            _env.as_ref().map(|v| v.as_slice()),
             None
         )?;
 
         from_slice(result.as_slice()).map_err(Error::MsgpackError)
     }
 
-    pub fn generate_create2_address(&self, args: &EthersModuleArgsGenerateCreate2Address, uri: Option<Uri>, invoker: Option<Arc<dyn Invoker>>, env: Option<Vec<u8>>) -> Result<String, Error> {
-        let _uri = uri.unwrap_or(self.uri.clone());
-        let _invoker = invoker.unwrap_or(self.invoker.clone());
-        let _env = match &env {
-            Some(e) => Some(e.as_slice()),
-            None => match &self.env {
-                Some(e) => Some(e.as_slice()),
-                None => None,
-            },
+    pub fn generate_create2_address(&self, args: &EthersArgsGenerateCreate2Address, invoke_options: Option<InvokeOptions>) -> Result<String, Error> {
+        let (_uri, _invoker, _env) = if let Some(invoke_option) = invoke_options {
+            let uri = invoke_option.uri.clone().unwrap_or_else(|| self.uri.clone());
+            let invoker = invoke_option.client.clone().unwrap_or_else(|| self.invoker.clone());
+            let env = invoke_option.env.clone().or_else(|| self.env.clone());
+            (uri, invoker, env)
+        } else {
+            (self.uri.clone(), self.invoker.clone(), self.env.clone())
         };
 
         let serialized_args = to_vec(&args).unwrap();
@@ -1430,22 +1465,21 @@ impl EthersModule {
             &_uri,
             "generateCreate2Address",
             opt_args,
-            _env,
+            _env.as_ref().map(|v| v.as_slice()),
             None
         )?;
 
         from_slice(result.as_slice()).map_err(Error::MsgpackError)
     }
 
-    pub fn keccak256_bytes_encode_packed(&self, args: &EthersModuleArgsKeccak256BytesEncodePacked, uri: Option<Uri>, invoker: Option<Arc<dyn Invoker>>, env: Option<Vec<u8>>) -> Result<String, Error> {
-        let _uri = uri.unwrap_or(self.uri.clone());
-        let _invoker = invoker.unwrap_or(self.invoker.clone());
-        let _env = match &env {
-            Some(e) => Some(e.as_slice()),
-            None => match &self.env {
-                Some(e) => Some(e.as_slice()),
-                None => None,
-            },
+    pub fn keccak256_bytes_encode_packed(&self, args: &EthersArgsKeccak256BytesEncodePacked, invoke_options: Option<InvokeOptions>) -> Result<String, Error> {
+        let (_uri, _invoker, _env) = if let Some(invoke_option) = invoke_options {
+            let uri = invoke_option.uri.clone().unwrap_or_else(|| self.uri.clone());
+            let invoker = invoke_option.client.clone().unwrap_or_else(|| self.invoker.clone());
+            let env = invoke_option.env.clone().or_else(|| self.env.clone());
+            (uri, invoker, env)
+        } else {
+            (self.uri.clone(), self.invoker.clone(), self.env.clone())
         };
 
         let serialized_args = to_vec(&args).unwrap();
@@ -1454,22 +1488,21 @@ impl EthersModule {
             &_uri,
             "keccak256BytesEncodePacked",
             opt_args,
-            _env,
+            _env.as_ref().map(|v| v.as_slice()),
             None
         )?;
 
         from_slice(result.as_slice()).map_err(Error::MsgpackError)
     }
 
-    pub fn keccak256(&self, args: &EthersModuleArgsKeccak256, uri: Option<Uri>, invoker: Option<Arc<dyn Invoker>>, env: Option<Vec<u8>>) -> Result<String, Error> {
-        let _uri = uri.unwrap_or(self.uri.clone());
-        let _invoker = invoker.unwrap_or(self.invoker.clone());
-        let _env = match &env {
-            Some(e) => Some(e.as_slice()),
-            None => match &self.env {
-                Some(e) => Some(e.as_slice()),
-                None => None,
-            },
+    pub fn keccak256(&self, args: &EthersArgsKeccak256, invoke_options: Option<InvokeOptions>) -> Result<String, Error> {
+        let (_uri, _invoker, _env) = if let Some(invoke_option) = invoke_options {
+            let uri = invoke_option.uri.clone().unwrap_or_else(|| self.uri.clone());
+            let invoker = invoke_option.client.clone().unwrap_or_else(|| self.invoker.clone());
+            let env = invoke_option.env.clone().or_else(|| self.env.clone());
+            (uri, invoker, env)
+        } else {
+            (self.uri.clone(), self.invoker.clone(), self.env.clone())
         };
 
         let serialized_args = to_vec(&args).unwrap();
@@ -1478,22 +1511,21 @@ impl EthersModule {
             &_uri,
             "keccak256",
             opt_args,
-            _env,
+            _env.as_ref().map(|v| v.as_slice()),
             None
         )?;
 
         from_slice(result.as_slice()).map_err(Error::MsgpackError)
     }
 
-    pub fn encode_meta_transaction(&self, args: &EthersModuleArgsEncodeMetaTransaction, uri: Option<Uri>, invoker: Option<Arc<dyn Invoker>>, env: Option<Vec<u8>>) -> Result<String, Error> {
-        let _uri = uri.unwrap_or(self.uri.clone());
-        let _invoker = invoker.unwrap_or(self.invoker.clone());
-        let _env = match &env {
-            Some(e) => Some(e.as_slice()),
-            None => match &self.env {
-                Some(e) => Some(e.as_slice()),
-                None => None,
-            },
+    pub fn encode_meta_transaction(&self, args: &EthersArgsEncodeMetaTransaction, invoke_options: Option<InvokeOptions>) -> Result<String, Error> {
+        let (_uri, _invoker, _env) = if let Some(invoke_option) = invoke_options {
+            let uri = invoke_option.uri.clone().unwrap_or_else(|| self.uri.clone());
+            let invoker = invoke_option.client.clone().unwrap_or_else(|| self.invoker.clone());
+            let env = invoke_option.env.clone().or_else(|| self.env.clone());
+            (uri, invoker, env)
+        } else {
+            (self.uri.clone(), self.invoker.clone(), self.env.clone())
         };
 
         let serialized_args = to_vec(&args).unwrap();
@@ -1502,22 +1534,21 @@ impl EthersModule {
             &_uri,
             "encodeMetaTransaction",
             opt_args,
-            _env,
+            _env.as_ref().map(|v| v.as_slice()),
             None
         )?;
 
         from_slice(result.as_slice()).map_err(Error::MsgpackError)
     }
 
-    pub fn encode_params(&self, args: &EthersModuleArgsEncodeParams, uri: Option<Uri>, invoker: Option<Arc<dyn Invoker>>, env: Option<Vec<u8>>) -> Result<String, Error> {
-        let _uri = uri.unwrap_or(self.uri.clone());
-        let _invoker = invoker.unwrap_or(self.invoker.clone());
-        let _env = match &env {
-            Some(e) => Some(e.as_slice()),
-            None => match &self.env {
-                Some(e) => Some(e.as_slice()),
-                None => None,
-            },
+    pub fn encode_params(&self, args: &EthersArgsEncodeParams, invoke_options: Option<InvokeOptions>) -> Result<String, Error> {
+        let (_uri, _invoker, _env) = if let Some(invoke_option) = invoke_options {
+            let uri = invoke_option.uri.clone().unwrap_or_else(|| self.uri.clone());
+            let invoker = invoke_option.client.clone().unwrap_or_else(|| self.invoker.clone());
+            let env = invoke_option.env.clone().or_else(|| self.env.clone());
+            (uri, invoker, env)
+        } else {
+            (self.uri.clone(), self.invoker.clone(), self.env.clone())
         };
 
         let serialized_args = to_vec(&args).unwrap();
@@ -1526,22 +1557,21 @@ impl EthersModule {
             &_uri,
             "encodeParams",
             opt_args,
-            _env,
+            _env.as_ref().map(|v| v.as_slice()),
             None
         )?;
 
         from_slice(result.as_slice()).map_err(Error::MsgpackError)
     }
 
-    pub fn encode_function(&self, args: &EthersModuleArgsEncodeFunction, uri: Option<Uri>, invoker: Option<Arc<dyn Invoker>>, env: Option<Vec<u8>>) -> Result<String, Error> {
-        let _uri = uri.unwrap_or(self.uri.clone());
-        let _invoker = invoker.unwrap_or(self.invoker.clone());
-        let _env = match &env {
-            Some(e) => Some(e.as_slice()),
-            None => match &self.env {
-                Some(e) => Some(e.as_slice()),
-                None => None,
-            },
+    pub fn encode_function(&self, args: &EthersArgsEncodeFunction, invoke_options: Option<InvokeOptions>) -> Result<String, Error> {
+        let (_uri, _invoker, _env) = if let Some(invoke_option) = invoke_options {
+            let uri = invoke_option.uri.clone().unwrap_or_else(|| self.uri.clone());
+            let invoker = invoke_option.client.clone().unwrap_or_else(|| self.invoker.clone());
+            let env = invoke_option.env.clone().or_else(|| self.env.clone());
+            (uri, invoker, env)
+        } else {
+            (self.uri.clone(), self.invoker.clone(), self.env.clone())
         };
 
         let serialized_args = to_vec(&args).unwrap();
@@ -1550,22 +1580,21 @@ impl EthersModule {
             &_uri,
             "encodeFunction",
             opt_args,
-            _env,
+            _env.as_ref().map(|v| v.as_slice()),
             None
         )?;
 
         from_slice(result.as_slice()).map_err(Error::MsgpackError)
     }
 
-    pub fn to_wei(&self, args: &EthersModuleArgsToWei, uri: Option<Uri>, invoker: Option<Arc<dyn Invoker>>, env: Option<Vec<u8>>) -> Result<String, Error> {
-        let _uri = uri.unwrap_or(self.uri.clone());
-        let _invoker = invoker.unwrap_or(self.invoker.clone());
-        let _env = match &env {
-            Some(e) => Some(e.as_slice()),
-            None => match &self.env {
-                Some(e) => Some(e.as_slice()),
-                None => None,
-            },
+    pub fn to_wei(&self, args: &EthersArgsToWei, invoke_options: Option<InvokeOptions>) -> Result<String, Error> {
+        let (_uri, _invoker, _env) = if let Some(invoke_option) = invoke_options {
+            let uri = invoke_option.uri.clone().unwrap_or_else(|| self.uri.clone());
+            let invoker = invoke_option.client.clone().unwrap_or_else(|| self.invoker.clone());
+            let env = invoke_option.env.clone().or_else(|| self.env.clone());
+            (uri, invoker, env)
+        } else {
+            (self.uri.clone(), self.invoker.clone(), self.env.clone())
         };
 
         let serialized_args = to_vec(&args).unwrap();
@@ -1574,22 +1603,21 @@ impl EthersModule {
             &_uri,
             "toWei",
             opt_args,
-            _env,
+            _env.as_ref().map(|v| v.as_slice()),
             None
         )?;
 
         from_slice(result.as_slice()).map_err(Error::MsgpackError)
     }
 
-    pub fn to_eth(&self, args: &EthersModuleArgsToEth, uri: Option<Uri>, invoker: Option<Arc<dyn Invoker>>, env: Option<Vec<u8>>) -> Result<String, Error> {
-        let _uri = uri.unwrap_or(self.uri.clone());
-        let _invoker = invoker.unwrap_or(self.invoker.clone());
-        let _env = match &env {
-            Some(e) => Some(e.as_slice()),
-            None => match &self.env {
-                Some(e) => Some(e.as_slice()),
-                None => None,
-            },
+    pub fn to_eth(&self, args: &EthersArgsToEth, invoke_options: Option<InvokeOptions>) -> Result<String, Error> {
+        let (_uri, _invoker, _env) = if let Some(invoke_option) = invoke_options {
+            let uri = invoke_option.uri.clone().unwrap_or_else(|| self.uri.clone());
+            let invoker = invoke_option.client.clone().unwrap_or_else(|| self.invoker.clone());
+            let env = invoke_option.env.clone().or_else(|| self.env.clone());
+            (uri, invoker, env)
+        } else {
+            (self.uri.clone(), self.invoker.clone(), self.env.clone())
         };
 
         let serialized_args = to_vec(&args).unwrap();
@@ -1598,22 +1626,21 @@ impl EthersModule {
             &_uri,
             "toEth",
             opt_args,
-            _env,
+            _env.as_ref().map(|v| v.as_slice()),
             None
         )?;
 
         from_slice(result.as_slice()).map_err(Error::MsgpackError)
     }
 
-    pub fn solidity_pack(&self, args: &EthersModuleArgsSolidityPack, uri: Option<Uri>, invoker: Option<Arc<dyn Invoker>>, env: Option<Vec<u8>>) -> Result<String, Error> {
-        let _uri = uri.unwrap_or(self.uri.clone());
-        let _invoker = invoker.unwrap_or(self.invoker.clone());
-        let _env = match &env {
-            Some(e) => Some(e.as_slice()),
-            None => match &self.env {
-                Some(e) => Some(e.as_slice()),
-                None => None,
-            },
+    pub fn solidity_pack(&self, args: &EthersArgsSolidityPack, invoke_options: Option<InvokeOptions>) -> Result<String, Error> {
+        let (_uri, _invoker, _env) = if let Some(invoke_option) = invoke_options {
+            let uri = invoke_option.uri.clone().unwrap_or_else(|| self.uri.clone());
+            let invoker = invoke_option.client.clone().unwrap_or_else(|| self.invoker.clone());
+            let env = invoke_option.env.clone().or_else(|| self.env.clone());
+            (uri, invoker, env)
+        } else {
+            (self.uri.clone(), self.invoker.clone(), self.env.clone())
         };
 
         let serialized_args = to_vec(&args).unwrap();
@@ -1622,7 +1649,7 @@ impl EthersModule {
             &_uri,
             "solidityPack",
             opt_args,
-            _env,
+            _env.as_ref().map(|v| v.as_slice()),
             None
         )?;
 
@@ -1631,12 +1658,12 @@ impl EthersModule {
 }
 // URI: "wrapscan.io/polywrap/relay-kit@0.1.0" //
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct RelayerModuleArgsGetFeeCollector {
+pub struct RelayerArgsGetFeeCollector {
 }
 
 // URI: "wrapscan.io/polywrap/relay-kit@0.1.0" //
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct RelayerModuleArgsGetEstimateFee {
+pub struct RelayerArgsGetEstimateFee {
     #[serde(rename = "chainId")]
     pub chain_id: i32,
     #[serde(rename = "gasLimit")]
@@ -1647,44 +1674,63 @@ pub struct RelayerModuleArgsGetEstimateFee {
 
 // URI: "wrapscan.io/polywrap/relay-kit@0.1.0" //
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct RelayerModuleArgsRelayTransaction {
+pub struct RelayerArgsRelayTransaction {
     pub transaction: RelayerRelayTransaction,
 }
 
 #[derive(Clone)]
-pub struct RelayerModule {
-    uri: Uri,
-    invoker: Arc<dyn Invoker>,
-    env: Option<Vec<u8>>
+pub struct Relayer {
+    pub uri: Uri,
+    pub invoker: Arc<dyn Invoker>,
+    pub env: Option<Vec<u8>>
 }
 
-impl RelayerModule {
-    pub fn new(uri: Option<Uri>, invoker: Option<Arc<dyn Invoker>>, env: Option<Vec<u8>>) -> RelayerModule {
+impl Relayer {
+    pub fn new(invoke_options: Option<InvokeOptions>) -> Relayer {
         let mut config = PolywrapClientConfig::new();
         config.add(SystemClientConfig::default().into());
         config.add(Web3ClientConfig::default().into());
         let client = PolywrapClient::new(config.build());
 
-        let _uri = uri.unwrap_or(uri!("wrapscan.io/polywrap/relay-kit@0.1.0"));
-        let _invoker = invoker.unwrap_or(Arc::new(client));
-        let _env = env;
+        let default_client = Arc::new(client);
+        let default_uri = uri!("wrapscan.io/polywrap/relay-kit@0.1.0");
+        let (_uri, _invoker, _env) = if let Some(invoke_option) = invoke_options {
+            let _uri = if let Some(uri) = invoke_option.uri {
+                uri
+            } else {
+                default_uri
+            };
 
-        RelayerModule {
+            let _invoker = if let Some(invoker) = invoke_option.client {
+                invoker
+            } else {
+                default_client
+            };
+
+            (_uri, _invoker, invoke_option.env)
+        } else {
+            (default_uri, default_client as Arc<dyn Invoker>, None)
+        };
+
+        Relayer {
             uri: _uri,
             invoker: _invoker,
             env: _env,
         }
     }
 
-    pub fn get_fee_collector(&self, args: &RelayerModuleArgsGetFeeCollector, uri: Option<Uri>, invoker: Option<Arc<dyn Invoker>>, env: Option<Vec<u8>>) -> Result<String, Error> {
-        let _uri = uri.unwrap_or(self.uri.clone());
-        let _invoker = invoker.unwrap_or(self.invoker.clone());
-        let _env = match &env {
-            Some(e) => Some(e.as_slice()),
-            None => match &self.env {
-                Some(e) => Some(e.as_slice()),
-                None => None,
-            },
+    pub fn default_uri() -> Uri {
+        uri!("wrapscan.io/polywrap/relay-kit@0.1.0")
+    }
+
+    pub fn get_fee_collector(&self, args: &RelayerArgsGetFeeCollector, invoke_options: Option<InvokeOptions>) -> Result<String, Error> {
+        let (_uri, _invoker, _env) = if let Some(invoke_option) = invoke_options {
+            let uri = invoke_option.uri.clone().unwrap_or_else(|| self.uri.clone());
+            let invoker = invoke_option.client.clone().unwrap_or_else(|| self.invoker.clone());
+            let env = invoke_option.env.clone().or_else(|| self.env.clone());
+            (uri, invoker, env)
+        } else {
+            (self.uri.clone(), self.invoker.clone(), self.env.clone())
         };
 
         let serialized_args = to_vec(&args).unwrap();
@@ -1693,22 +1739,21 @@ impl RelayerModule {
             &_uri,
             "getFeeCollector",
             opt_args,
-            _env,
+            _env.as_ref().map(|v| v.as_slice()),
             None
         )?;
 
         from_slice(result.as_slice()).map_err(Error::MsgpackError)
     }
 
-    pub fn get_estimate_fee(&self, args: &RelayerModuleArgsGetEstimateFee, uri: Option<Uri>, invoker: Option<Arc<dyn Invoker>>, env: Option<Vec<u8>>) -> Result<BigInt, Error> {
-        let _uri = uri.unwrap_or(self.uri.clone());
-        let _invoker = invoker.unwrap_or(self.invoker.clone());
-        let _env = match &env {
-            Some(e) => Some(e.as_slice()),
-            None => match &self.env {
-                Some(e) => Some(e.as_slice()),
-                None => None,
-            },
+    pub fn get_estimate_fee(&self, args: &RelayerArgsGetEstimateFee, invoke_options: Option<InvokeOptions>) -> Result<BigInt, Error> {
+        let (_uri, _invoker, _env) = if let Some(invoke_option) = invoke_options {
+            let uri = invoke_option.uri.clone().unwrap_or_else(|| self.uri.clone());
+            let invoker = invoke_option.client.clone().unwrap_or_else(|| self.invoker.clone());
+            let env = invoke_option.env.clone().or_else(|| self.env.clone());
+            (uri, invoker, env)
+        } else {
+            (self.uri.clone(), self.invoker.clone(), self.env.clone())
         };
 
         let serialized_args = to_vec(&args).unwrap();
@@ -1717,22 +1762,21 @@ impl RelayerModule {
             &_uri,
             "getEstimateFee",
             opt_args,
-            _env,
+            _env.as_ref().map(|v| v.as_slice()),
             None
         )?;
 
         from_slice(result.as_slice()).map_err(Error::MsgpackError)
     }
 
-    pub fn relay_transaction(&self, args: &RelayerModuleArgsRelayTransaction, uri: Option<Uri>, invoker: Option<Arc<dyn Invoker>>, env: Option<Vec<u8>>) -> Result<RelayerRelayResponse, Error> {
-        let _uri = uri.unwrap_or(self.uri.clone());
-        let _invoker = invoker.unwrap_or(self.invoker.clone());
-        let _env = match &env {
-            Some(e) => Some(e.as_slice()),
-            None => match &self.env {
-                Some(e) => Some(e.as_slice()),
-                None => None,
-            },
+    pub fn relay_transaction(&self, args: &RelayerArgsRelayTransaction, invoke_options: Option<InvokeOptions>) -> Result<RelayerRelayResponse, Error> {
+        let (_uri, _invoker, _env) = if let Some(invoke_option) = invoke_options {
+            let uri = invoke_option.uri.clone().unwrap_or_else(|| self.uri.clone());
+            let invoker = invoke_option.client.clone().unwrap_or_else(|| self.invoker.clone());
+            let env = invoke_option.env.clone().or_else(|| self.env.clone());
+            (uri, invoker, env)
+        } else {
+            (self.uri.clone(), self.invoker.clone(), self.env.clone())
         };
 
         let serialized_args = to_vec(&args).unwrap();
@@ -1741,7 +1785,7 @@ impl RelayerModule {
             &_uri,
             "relayTransaction",
             opt_args,
-            _env,
+            _env.as_ref().map(|v| v.as_slice()),
             None
         )?;
 
@@ -1750,7 +1794,7 @@ impl RelayerModule {
 }
 // URI: "wrapscan.io/polywrap/protocol-kit@0.1.0" //
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct SafeModuleArgsCreateProxy {
+pub struct SafeArgsCreateProxy {
     pub address: String,
     #[serde(rename = "safeMasterCopyAddress")]
     pub safe_master_copy_address: String,
@@ -1764,28 +1808,28 @@ pub struct SafeModuleArgsCreateProxy {
 
 // URI: "wrapscan.io/polywrap/protocol-kit@0.1.0" //
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct SafeModuleArgsProxyCreationCode {
+pub struct SafeArgsProxyCreationCode {
     pub address: String,
     pub connection: Option<SafeEthersConnection>,
 }
 
 // URI: "wrapscan.io/polywrap/protocol-kit@0.1.0" //
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct SafeModuleArgsGetNonce {
+pub struct SafeArgsGetNonce {
     pub address: String,
     pub connection: Option<SafeEthersConnection>,
 }
 
 // URI: "wrapscan.io/polywrap/protocol-kit@0.1.0" //
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct SafeModuleArgsGetVersion {
+pub struct SafeArgsGetVersion {
     pub address: String,
     pub connection: Option<SafeEthersConnection>,
 }
 
 // URI: "wrapscan.io/polywrap/protocol-kit@0.1.0" //
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct SafeModuleArgsApprovedHashes {
+pub struct SafeArgsApprovedHashes {
     pub address: String,
     #[serde(rename = "ownerAddress")]
     pub owner_address: String,
@@ -1795,7 +1839,7 @@ pub struct SafeModuleArgsApprovedHashes {
 
 // URI: "wrapscan.io/polywrap/protocol-kit@0.1.0" //
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct SafeModuleArgsApproveHash {
+pub struct SafeArgsApproveHash {
     #[serde(rename = "safeAddress")]
     pub safe_address: String,
     pub hash: String,
@@ -1805,7 +1849,7 @@ pub struct SafeModuleArgsApproveHash {
 
 // URI: "wrapscan.io/polywrap/protocol-kit@0.1.0" //
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct SafeModuleArgsGetSafeContractNetworks {
+pub struct SafeArgsGetSafeContractNetworks {
     pub version: String,
     #[serde(rename = "chainId")]
     pub chain_id: String,
@@ -1816,7 +1860,7 @@ pub struct SafeModuleArgsGetSafeContractNetworks {
 
 // URI: "wrapscan.io/polywrap/protocol-kit@0.1.0" //
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct SafeModuleArgsEncodeExecTransaction {
+pub struct SafeArgsEncodeExecTransaction {
     #[serde(rename = "safeAddress")]
     pub safe_address: String,
     #[serde(rename = "safeTransaction")]
@@ -1825,7 +1869,7 @@ pub struct SafeModuleArgsEncodeExecTransaction {
 
 // URI: "wrapscan.io/polywrap/protocol-kit@0.1.0" //
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct SafeModuleArgsDeploySafe {
+pub struct SafeArgsDeploySafe {
     pub input: SafeDeploymentInput,
     #[serde(rename = "txOptions")]
     pub tx_options: Option<SafeEthersTxOptions>,
@@ -1833,19 +1877,19 @@ pub struct SafeModuleArgsDeploySafe {
 
 // URI: "wrapscan.io/polywrap/protocol-kit@0.1.0" //
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct SafeModuleArgsPredictSafeAddress {
+pub struct SafeArgsPredictSafeAddress {
     pub input: SafeDeploymentInput,
 }
 
 // URI: "wrapscan.io/polywrap/protocol-kit@0.1.0" //
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct SafeModuleArgsEncodeDeploySafe {
+pub struct SafeArgsEncodeDeploySafe {
     pub input: SafeDeploymentInput,
 }
 
 // URI: "wrapscan.io/polywrap/protocol-kit@0.1.0" //
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct SafeModuleArgsSafeIsDeployed {
+pub struct SafeArgsSafeIsDeployed {
     #[serde(rename = "safeAddress")]
     pub safe_address: String,
     pub connection: SafeEthersConnection,
@@ -1853,19 +1897,19 @@ pub struct SafeModuleArgsSafeIsDeployed {
 
 // URI: "wrapscan.io/polywrap/protocol-kit@0.1.0" //
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct SafeModuleArgsGetSafeInitializer {
+pub struct SafeArgsGetSafeInitializer {
     pub config: SafeSafeAccountConfig,
 }
 
 // URI: "wrapscan.io/polywrap/protocol-kit@0.1.0" //
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct SafeModuleArgsCreateTransaction {
+pub struct SafeArgsCreateTransaction {
     pub tx: SafeSafeTransactionDataPartial,
 }
 
 // URI: "wrapscan.io/polywrap/protocol-kit@0.1.0" //
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct SafeModuleArgsCreateMultiSendTransaction {
+pub struct SafeArgsCreateMultiSendTransaction {
     pub txs: Vec<SafeSafeTransactionDataPartial>,
     pub options: Option<SafeSafeTransactionOptions>,
     #[serde(rename = "onlyCalls")]
@@ -1876,7 +1920,7 @@ pub struct SafeModuleArgsCreateMultiSendTransaction {
 
 // URI: "wrapscan.io/polywrap/protocol-kit@0.1.0" //
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct SafeModuleArgsAddSignature {
+pub struct SafeArgsAddSignature {
     pub tx: SafeSafeTransaction,
     #[serde(rename = "signingMethod")]
     pub signing_method: Option<String>,
@@ -1884,39 +1928,39 @@ pub struct SafeModuleArgsAddSignature {
 
 // URI: "wrapscan.io/polywrap/protocol-kit@0.1.0" //
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct SafeModuleArgsGetTransactionHash {
+pub struct SafeArgsGetTransactionHash {
     pub tx: SafeSafeTransactionData,
 }
 
 // URI: "wrapscan.io/polywrap/protocol-kit@0.1.0" //
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct SafeModuleArgsSignTransactionHash {
+pub struct SafeArgsSignTransactionHash {
     pub hash: String,
 }
 
 // URI: "wrapscan.io/polywrap/protocol-kit@0.1.0" //
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct SafeModuleArgsApproveTransactionHash {
+pub struct SafeArgsApproveTransactionHash {
     pub hash: String,
     pub options: Option<SafeTransactionOptions>,
 }
 
 // URI: "wrapscan.io/polywrap/protocol-kit@0.1.0" //
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct SafeModuleArgsExecuteTransaction {
+pub struct SafeArgsExecuteTransaction {
     pub tx: SafeSafeTransaction,
     pub options: Option<SafeTransactionOptions>,
 }
 
 // URI: "wrapscan.io/polywrap/protocol-kit@0.1.0" //
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct SafeModuleArgsGetOwnersWhoApprovedTx {
+pub struct SafeArgsGetOwnersWhoApprovedTx {
     pub hash: String,
 }
 
 // URI: "wrapscan.io/polywrap/protocol-kit@0.1.0" //
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct SafeModuleArgsGetSignature {
+pub struct SafeArgsGetSignature {
     pub tx: SafeSafeTransaction,
     #[serde(rename = "signingMethod")]
     pub signing_method: Option<String>,
@@ -1927,7 +1971,7 @@ pub struct SafeModuleArgsGetSignature {
 
 // URI: "wrapscan.io/polywrap/protocol-kit@0.1.0" //
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct SafeModuleArgsGetOwners {
+pub struct SafeArgsGetOwners {
     #[serde(rename = "safeAddress")]
     pub safe_address: String,
     pub connection: Option<SafeEthersConnection>,
@@ -1935,7 +1979,7 @@ pub struct SafeModuleArgsGetOwners {
 
 // URI: "wrapscan.io/polywrap/protocol-kit@0.1.0" //
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct SafeModuleArgsGetThreshold {
+pub struct SafeArgsGetThreshold {
     #[serde(rename = "safeAddress")]
     pub safe_address: String,
     pub connection: Option<SafeEthersConnection>,
@@ -1943,7 +1987,7 @@ pub struct SafeModuleArgsGetThreshold {
 
 // URI: "wrapscan.io/polywrap/protocol-kit@0.1.0" //
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct SafeModuleArgsIsOwner {
+pub struct SafeArgsIsOwner {
     #[serde(rename = "ownerAddress")]
     pub owner_address: String,
     #[serde(rename = "safeAddress")]
@@ -1953,39 +1997,39 @@ pub struct SafeModuleArgsIsOwner {
 
 // URI: "wrapscan.io/polywrap/protocol-kit@0.1.0" //
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct SafeModuleArgsGetModules {
+pub struct SafeArgsGetModules {
 }
 
 // URI: "wrapscan.io/polywrap/protocol-kit@0.1.0" //
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct SafeModuleArgsIsModuleEnabled {
+pub struct SafeArgsIsModuleEnabled {
     #[serde(rename = "moduleAddress")]
     pub module_address: String,
 }
 
 // URI: "wrapscan.io/polywrap/protocol-kit@0.1.0" //
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct SafeModuleArgsEncodeEnableModuleData {
+pub struct SafeArgsEncodeEnableModuleData {
     #[serde(rename = "moduleAddress")]
     pub module_address: String,
 }
 
 // URI: "wrapscan.io/polywrap/protocol-kit@0.1.0" //
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct SafeModuleArgsEncodeDisableModuleData {
+pub struct SafeArgsEncodeDisableModuleData {
     #[serde(rename = "moduleAddress")]
     pub module_address: String,
 }
 
 // URI: "wrapscan.io/polywrap/protocol-kit@0.1.0" //
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct SafeModuleArgsEncodeMultiSendData {
+pub struct SafeArgsEncodeMultiSendData {
     pub txs: Vec<SafeSafeTransactionDataPartial>,
 }
 
 // URI: "wrapscan.io/polywrap/protocol-kit@0.1.0" //
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct SafeModuleArgsEncodeAddOwnerWithThresholdData {
+pub struct SafeArgsEncodeAddOwnerWithThresholdData {
     #[serde(rename = "ownerAddress")]
     pub owner_address: String,
     pub threshold: Option<u32>,
@@ -1993,7 +2037,7 @@ pub struct SafeModuleArgsEncodeAddOwnerWithThresholdData {
 
 // URI: "wrapscan.io/polywrap/protocol-kit@0.1.0" //
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct SafeModuleArgsEncodeRemoveOwnerData {
+pub struct SafeArgsEncodeRemoveOwnerData {
     #[serde(rename = "ownerAddress")]
     pub owner_address: String,
     pub threshold: Option<u32>,
@@ -2001,7 +2045,7 @@ pub struct SafeModuleArgsEncodeRemoveOwnerData {
 
 // URI: "wrapscan.io/polywrap/protocol-kit@0.1.0" //
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct SafeModuleArgsEncodeSwapOwnerData {
+pub struct SafeArgsEncodeSwapOwnerData {
     #[serde(rename = "oldOwnerAddress")]
     pub old_owner_address: String,
     #[serde(rename = "newOwnerAddress")]
@@ -2010,44 +2054,63 @@ pub struct SafeModuleArgsEncodeSwapOwnerData {
 
 // URI: "wrapscan.io/polywrap/protocol-kit@0.1.0" //
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct SafeModuleArgsEncodeChangeThresholdData {
+pub struct SafeArgsEncodeChangeThresholdData {
     pub threshold: u32,
 }
 
 #[derive(Clone)]
-pub struct SafeModule {
-    uri: Uri,
-    invoker: Arc<dyn Invoker>,
-    env: Option<Vec<u8>>
+pub struct Safe {
+    pub uri: Uri,
+    pub invoker: Arc<dyn Invoker>,
+    pub env: Option<Vec<u8>>
 }
 
-impl SafeModule {
-    pub fn new(uri: Option<Uri>, invoker: Option<Arc<dyn Invoker>>, env: Option<Vec<u8>>) -> SafeModule {
+impl Safe {
+    pub fn new(invoke_options: Option<InvokeOptions>) -> Safe {
         let mut config = PolywrapClientConfig::new();
         config.add(SystemClientConfig::default().into());
         config.add(Web3ClientConfig::default().into());
         let client = PolywrapClient::new(config.build());
 
-        let _uri = uri.unwrap_or(uri!("wrapscan.io/polywrap/protocol-kit@0.1.0"));
-        let _invoker = invoker.unwrap_or(Arc::new(client));
-        let _env = env;
+        let default_client = Arc::new(client);
+        let default_uri = uri!("wrapscan.io/polywrap/protocol-kit@0.1.0");
+        let (_uri, _invoker, _env) = if let Some(invoke_option) = invoke_options {
+            let _uri = if let Some(uri) = invoke_option.uri {
+                uri
+            } else {
+                default_uri
+            };
 
-        SafeModule {
+            let _invoker = if let Some(invoker) = invoke_option.client {
+                invoker
+            } else {
+                default_client
+            };
+
+            (_uri, _invoker, invoke_option.env)
+        } else {
+            (default_uri, default_client as Arc<dyn Invoker>, None)
+        };
+
+        Safe {
             uri: _uri,
             invoker: _invoker,
             env: _env,
         }
     }
 
-    pub fn create_proxy(&self, args: &SafeModuleArgsCreateProxy, uri: Option<Uri>, invoker: Option<Arc<dyn Invoker>>, env: Option<Vec<u8>>) -> Result<String, Error> {
-        let _uri = uri.unwrap_or(self.uri.clone());
-        let _invoker = invoker.unwrap_or(self.invoker.clone());
-        let _env = match &env {
-            Some(e) => Some(e.as_slice()),
-            None => match &self.env {
-                Some(e) => Some(e.as_slice()),
-                None => None,
-            },
+    pub fn default_uri() -> Uri {
+        uri!("wrapscan.io/polywrap/protocol-kit@0.1.0")
+    }
+
+    pub fn create_proxy(&self, args: &SafeArgsCreateProxy, invoke_options: Option<InvokeOptions>) -> Result<String, Error> {
+        let (_uri, _invoker, _env) = if let Some(invoke_option) = invoke_options {
+            let uri = invoke_option.uri.clone().unwrap_or_else(|| self.uri.clone());
+            let invoker = invoke_option.client.clone().unwrap_or_else(|| self.invoker.clone());
+            let env = invoke_option.env.clone().or_else(|| self.env.clone());
+            (uri, invoker, env)
+        } else {
+            (self.uri.clone(), self.invoker.clone(), self.env.clone())
         };
 
         let serialized_args = to_vec(&args).unwrap();
@@ -2056,22 +2119,21 @@ impl SafeModule {
             &_uri,
             "createProxy",
             opt_args,
-            _env,
+            _env.as_ref().map(|v| v.as_slice()),
             None
         )?;
 
         from_slice(result.as_slice()).map_err(Error::MsgpackError)
     }
 
-    pub fn proxy_creation_code(&self, args: &SafeModuleArgsProxyCreationCode, uri: Option<Uri>, invoker: Option<Arc<dyn Invoker>>, env: Option<Vec<u8>>) -> Result<String, Error> {
-        let _uri = uri.unwrap_or(self.uri.clone());
-        let _invoker = invoker.unwrap_or(self.invoker.clone());
-        let _env = match &env {
-            Some(e) => Some(e.as_slice()),
-            None => match &self.env {
-                Some(e) => Some(e.as_slice()),
-                None => None,
-            },
+    pub fn proxy_creation_code(&self, args: &SafeArgsProxyCreationCode, invoke_options: Option<InvokeOptions>) -> Result<String, Error> {
+        let (_uri, _invoker, _env) = if let Some(invoke_option) = invoke_options {
+            let uri = invoke_option.uri.clone().unwrap_or_else(|| self.uri.clone());
+            let invoker = invoke_option.client.clone().unwrap_or_else(|| self.invoker.clone());
+            let env = invoke_option.env.clone().or_else(|| self.env.clone());
+            (uri, invoker, env)
+        } else {
+            (self.uri.clone(), self.invoker.clone(), self.env.clone())
         };
 
         let serialized_args = to_vec(&args).unwrap();
@@ -2080,22 +2142,21 @@ impl SafeModule {
             &_uri,
             "proxyCreationCode",
             opt_args,
-            _env,
+            _env.as_ref().map(|v| v.as_slice()),
             None
         )?;
 
         from_slice(result.as_slice()).map_err(Error::MsgpackError)
     }
 
-    pub fn get_nonce(&self, args: &SafeModuleArgsGetNonce, uri: Option<Uri>, invoker: Option<Arc<dyn Invoker>>, env: Option<Vec<u8>>) -> Result<BigInt, Error> {
-        let _uri = uri.unwrap_or(self.uri.clone());
-        let _invoker = invoker.unwrap_or(self.invoker.clone());
-        let _env = match &env {
-            Some(e) => Some(e.as_slice()),
-            None => match &self.env {
-                Some(e) => Some(e.as_slice()),
-                None => None,
-            },
+    pub fn get_nonce(&self, args: &SafeArgsGetNonce, invoke_options: Option<InvokeOptions>) -> Result<BigInt, Error> {
+        let (_uri, _invoker, _env) = if let Some(invoke_option) = invoke_options {
+            let uri = invoke_option.uri.clone().unwrap_or_else(|| self.uri.clone());
+            let invoker = invoke_option.client.clone().unwrap_or_else(|| self.invoker.clone());
+            let env = invoke_option.env.clone().or_else(|| self.env.clone());
+            (uri, invoker, env)
+        } else {
+            (self.uri.clone(), self.invoker.clone(), self.env.clone())
         };
 
         let serialized_args = to_vec(&args).unwrap();
@@ -2104,22 +2165,21 @@ impl SafeModule {
             &_uri,
             "getNonce",
             opt_args,
-            _env,
+            _env.as_ref().map(|v| v.as_slice()),
             None
         )?;
 
         from_slice(result.as_slice()).map_err(Error::MsgpackError)
     }
 
-    pub fn get_version(&self, args: &SafeModuleArgsGetVersion, uri: Option<Uri>, invoker: Option<Arc<dyn Invoker>>, env: Option<Vec<u8>>) -> Result<String, Error> {
-        let _uri = uri.unwrap_or(self.uri.clone());
-        let _invoker = invoker.unwrap_or(self.invoker.clone());
-        let _env = match &env {
-            Some(e) => Some(e.as_slice()),
-            None => match &self.env {
-                Some(e) => Some(e.as_slice()),
-                None => None,
-            },
+    pub fn get_version(&self, args: &SafeArgsGetVersion, invoke_options: Option<InvokeOptions>) -> Result<String, Error> {
+        let (_uri, _invoker, _env) = if let Some(invoke_option) = invoke_options {
+            let uri = invoke_option.uri.clone().unwrap_or_else(|| self.uri.clone());
+            let invoker = invoke_option.client.clone().unwrap_or_else(|| self.invoker.clone());
+            let env = invoke_option.env.clone().or_else(|| self.env.clone());
+            (uri, invoker, env)
+        } else {
+            (self.uri.clone(), self.invoker.clone(), self.env.clone())
         };
 
         let serialized_args = to_vec(&args).unwrap();
@@ -2128,22 +2188,21 @@ impl SafeModule {
             &_uri,
             "getVersion",
             opt_args,
-            _env,
+            _env.as_ref().map(|v| v.as_slice()),
             None
         )?;
 
         from_slice(result.as_slice()).map_err(Error::MsgpackError)
     }
 
-    pub fn approved_hashes(&self, args: &SafeModuleArgsApprovedHashes, uri: Option<Uri>, invoker: Option<Arc<dyn Invoker>>, env: Option<Vec<u8>>) -> Result<BigInt, Error> {
-        let _uri = uri.unwrap_or(self.uri.clone());
-        let _invoker = invoker.unwrap_or(self.invoker.clone());
-        let _env = match &env {
-            Some(e) => Some(e.as_slice()),
-            None => match &self.env {
-                Some(e) => Some(e.as_slice()),
-                None => None,
-            },
+    pub fn approved_hashes(&self, args: &SafeArgsApprovedHashes, invoke_options: Option<InvokeOptions>) -> Result<BigInt, Error> {
+        let (_uri, _invoker, _env) = if let Some(invoke_option) = invoke_options {
+            let uri = invoke_option.uri.clone().unwrap_or_else(|| self.uri.clone());
+            let invoker = invoke_option.client.clone().unwrap_or_else(|| self.invoker.clone());
+            let env = invoke_option.env.clone().or_else(|| self.env.clone());
+            (uri, invoker, env)
+        } else {
+            (self.uri.clone(), self.invoker.clone(), self.env.clone())
         };
 
         let serialized_args = to_vec(&args).unwrap();
@@ -2152,22 +2211,21 @@ impl SafeModule {
             &_uri,
             "approvedHashes",
             opt_args,
-            _env,
+            _env.as_ref().map(|v| v.as_slice()),
             None
         )?;
 
         from_slice(result.as_slice()).map_err(Error::MsgpackError)
     }
 
-    pub fn approve_hash(&self, args: &SafeModuleArgsApproveHash, uri: Option<Uri>, invoker: Option<Arc<dyn Invoker>>, env: Option<Vec<u8>>) -> Result<SafeEthersTxReceipt, Error> {
-        let _uri = uri.unwrap_or(self.uri.clone());
-        let _invoker = invoker.unwrap_or(self.invoker.clone());
-        let _env = match &env {
-            Some(e) => Some(e.as_slice()),
-            None => match &self.env {
-                Some(e) => Some(e.as_slice()),
-                None => None,
-            },
+    pub fn approve_hash(&self, args: &SafeArgsApproveHash, invoke_options: Option<InvokeOptions>) -> Result<SafeEthersTxReceipt, Error> {
+        let (_uri, _invoker, _env) = if let Some(invoke_option) = invoke_options {
+            let uri = invoke_option.uri.clone().unwrap_or_else(|| self.uri.clone());
+            let invoker = invoke_option.client.clone().unwrap_or_else(|| self.invoker.clone());
+            let env = invoke_option.env.clone().or_else(|| self.env.clone());
+            (uri, invoker, env)
+        } else {
+            (self.uri.clone(), self.invoker.clone(), self.env.clone())
         };
 
         let serialized_args = to_vec(&args).unwrap();
@@ -2176,22 +2234,21 @@ impl SafeModule {
             &_uri,
             "approveHash",
             opt_args,
-            _env,
+            _env.as_ref().map(|v| v.as_slice()),
             None
         )?;
 
         from_slice(result.as_slice()).map_err(Error::MsgpackError)
     }
 
-    pub fn get_safe_contract_networks(&self, args: &SafeModuleArgsGetSafeContractNetworks, uri: Option<Uri>, invoker: Option<Arc<dyn Invoker>>, env: Option<Vec<u8>>) -> Result<SafeContractNetworksConfig, Error> {
-        let _uri = uri.unwrap_or(self.uri.clone());
-        let _invoker = invoker.unwrap_or(self.invoker.clone());
-        let _env = match &env {
-            Some(e) => Some(e.as_slice()),
-            None => match &self.env {
-                Some(e) => Some(e.as_slice()),
-                None => None,
-            },
+    pub fn get_safe_contract_networks(&self, args: &SafeArgsGetSafeContractNetworks, invoke_options: Option<InvokeOptions>) -> Result<SafeContractNetworksConfig, Error> {
+        let (_uri, _invoker, _env) = if let Some(invoke_option) = invoke_options {
+            let uri = invoke_option.uri.clone().unwrap_or_else(|| self.uri.clone());
+            let invoker = invoke_option.client.clone().unwrap_or_else(|| self.invoker.clone());
+            let env = invoke_option.env.clone().or_else(|| self.env.clone());
+            (uri, invoker, env)
+        } else {
+            (self.uri.clone(), self.invoker.clone(), self.env.clone())
         };
 
         let serialized_args = to_vec(&args).unwrap();
@@ -2200,22 +2257,21 @@ impl SafeModule {
             &_uri,
             "getSafeContractNetworks",
             opt_args,
-            _env,
+            _env.as_ref().map(|v| v.as_slice()),
             None
         )?;
 
         from_slice(result.as_slice()).map_err(Error::MsgpackError)
     }
 
-    pub fn encode_exec_transaction(&self, args: &SafeModuleArgsEncodeExecTransaction, uri: Option<Uri>, invoker: Option<Arc<dyn Invoker>>, env: Option<Vec<u8>>) -> Result<String, Error> {
-        let _uri = uri.unwrap_or(self.uri.clone());
-        let _invoker = invoker.unwrap_or(self.invoker.clone());
-        let _env = match &env {
-            Some(e) => Some(e.as_slice()),
-            None => match &self.env {
-                Some(e) => Some(e.as_slice()),
-                None => None,
-            },
+    pub fn encode_exec_transaction(&self, args: &SafeArgsEncodeExecTransaction, invoke_options: Option<InvokeOptions>) -> Result<String, Error> {
+        let (_uri, _invoker, _env) = if let Some(invoke_option) = invoke_options {
+            let uri = invoke_option.uri.clone().unwrap_or_else(|| self.uri.clone());
+            let invoker = invoke_option.client.clone().unwrap_or_else(|| self.invoker.clone());
+            let env = invoke_option.env.clone().or_else(|| self.env.clone());
+            (uri, invoker, env)
+        } else {
+            (self.uri.clone(), self.invoker.clone(), self.env.clone())
         };
 
         let serialized_args = to_vec(&args).unwrap();
@@ -2224,22 +2280,21 @@ impl SafeModule {
             &_uri,
             "encodeExecTransaction",
             opt_args,
-            _env,
+            _env.as_ref().map(|v| v.as_slice()),
             None
         )?;
 
         from_slice(result.as_slice()).map_err(Error::MsgpackError)
     }
 
-    pub fn deploy_safe(&self, args: &SafeModuleArgsDeploySafe, uri: Option<Uri>, invoker: Option<Arc<dyn Invoker>>, env: Option<Vec<u8>>) -> Result<String, Error> {
-        let _uri = uri.unwrap_or(self.uri.clone());
-        let _invoker = invoker.unwrap_or(self.invoker.clone());
-        let _env = match &env {
-            Some(e) => Some(e.as_slice()),
-            None => match &self.env {
-                Some(e) => Some(e.as_slice()),
-                None => None,
-            },
+    pub fn deploy_safe(&self, args: &SafeArgsDeploySafe, invoke_options: Option<InvokeOptions>) -> Result<String, Error> {
+        let (_uri, _invoker, _env) = if let Some(invoke_option) = invoke_options {
+            let uri = invoke_option.uri.clone().unwrap_or_else(|| self.uri.clone());
+            let invoker = invoke_option.client.clone().unwrap_or_else(|| self.invoker.clone());
+            let env = invoke_option.env.clone().or_else(|| self.env.clone());
+            (uri, invoker, env)
+        } else {
+            (self.uri.clone(), self.invoker.clone(), self.env.clone())
         };
 
         let serialized_args = to_vec(&args).unwrap();
@@ -2248,22 +2303,21 @@ impl SafeModule {
             &_uri,
             "deploySafe",
             opt_args,
-            _env,
+            _env.as_ref().map(|v| v.as_slice()),
             None
         )?;
 
         from_slice(result.as_slice()).map_err(Error::MsgpackError)
     }
 
-    pub fn predict_safe_address(&self, args: &SafeModuleArgsPredictSafeAddress, uri: Option<Uri>, invoker: Option<Arc<dyn Invoker>>, env: Option<Vec<u8>>) -> Result<String, Error> {
-        let _uri = uri.unwrap_or(self.uri.clone());
-        let _invoker = invoker.unwrap_or(self.invoker.clone());
-        let _env = match &env {
-            Some(e) => Some(e.as_slice()),
-            None => match &self.env {
-                Some(e) => Some(e.as_slice()),
-                None => None,
-            },
+    pub fn predict_safe_address(&self, args: &SafeArgsPredictSafeAddress, invoke_options: Option<InvokeOptions>) -> Result<String, Error> {
+        let (_uri, _invoker, _env) = if let Some(invoke_option) = invoke_options {
+            let uri = invoke_option.uri.clone().unwrap_or_else(|| self.uri.clone());
+            let invoker = invoke_option.client.clone().unwrap_or_else(|| self.invoker.clone());
+            let env = invoke_option.env.clone().or_else(|| self.env.clone());
+            (uri, invoker, env)
+        } else {
+            (self.uri.clone(), self.invoker.clone(), self.env.clone())
         };
 
         let serialized_args = to_vec(&args).unwrap();
@@ -2272,22 +2326,21 @@ impl SafeModule {
             &_uri,
             "predictSafeAddress",
             opt_args,
-            _env,
+            _env.as_ref().map(|v| v.as_slice()),
             None
         )?;
 
         from_slice(result.as_slice()).map_err(Error::MsgpackError)
     }
 
-    pub fn encode_deploy_safe(&self, args: &SafeModuleArgsEncodeDeploySafe, uri: Option<Uri>, invoker: Option<Arc<dyn Invoker>>, env: Option<Vec<u8>>) -> Result<String, Error> {
-        let _uri = uri.unwrap_or(self.uri.clone());
-        let _invoker = invoker.unwrap_or(self.invoker.clone());
-        let _env = match &env {
-            Some(e) => Some(e.as_slice()),
-            None => match &self.env {
-                Some(e) => Some(e.as_slice()),
-                None => None,
-            },
+    pub fn encode_deploy_safe(&self, args: &SafeArgsEncodeDeploySafe, invoke_options: Option<InvokeOptions>) -> Result<String, Error> {
+        let (_uri, _invoker, _env) = if let Some(invoke_option) = invoke_options {
+            let uri = invoke_option.uri.clone().unwrap_or_else(|| self.uri.clone());
+            let invoker = invoke_option.client.clone().unwrap_or_else(|| self.invoker.clone());
+            let env = invoke_option.env.clone().or_else(|| self.env.clone());
+            (uri, invoker, env)
+        } else {
+            (self.uri.clone(), self.invoker.clone(), self.env.clone())
         };
 
         let serialized_args = to_vec(&args).unwrap();
@@ -2296,22 +2349,21 @@ impl SafeModule {
             &_uri,
             "encodeDeploySafe",
             opt_args,
-            _env,
+            _env.as_ref().map(|v| v.as_slice()),
             None
         )?;
 
         from_slice(result.as_slice()).map_err(Error::MsgpackError)
     }
 
-    pub fn safe_is_deployed(&self, args: &SafeModuleArgsSafeIsDeployed, uri: Option<Uri>, invoker: Option<Arc<dyn Invoker>>, env: Option<Vec<u8>>) -> Result<bool, Error> {
-        let _uri = uri.unwrap_or(self.uri.clone());
-        let _invoker = invoker.unwrap_or(self.invoker.clone());
-        let _env = match &env {
-            Some(e) => Some(e.as_slice()),
-            None => match &self.env {
-                Some(e) => Some(e.as_slice()),
-                None => None,
-            },
+    pub fn safe_is_deployed(&self, args: &SafeArgsSafeIsDeployed, invoke_options: Option<InvokeOptions>) -> Result<bool, Error> {
+        let (_uri, _invoker, _env) = if let Some(invoke_option) = invoke_options {
+            let uri = invoke_option.uri.clone().unwrap_or_else(|| self.uri.clone());
+            let invoker = invoke_option.client.clone().unwrap_or_else(|| self.invoker.clone());
+            let env = invoke_option.env.clone().or_else(|| self.env.clone());
+            (uri, invoker, env)
+        } else {
+            (self.uri.clone(), self.invoker.clone(), self.env.clone())
         };
 
         let serialized_args = to_vec(&args).unwrap();
@@ -2320,22 +2372,21 @@ impl SafeModule {
             &_uri,
             "safeIsDeployed",
             opt_args,
-            _env,
+            _env.as_ref().map(|v| v.as_slice()),
             None
         )?;
 
         from_slice(result.as_slice()).map_err(Error::MsgpackError)
     }
 
-    pub fn get_safe_initializer(&self, args: &SafeModuleArgsGetSafeInitializer, uri: Option<Uri>, invoker: Option<Arc<dyn Invoker>>, env: Option<Vec<u8>>) -> Result<String, Error> {
-        let _uri = uri.unwrap_or(self.uri.clone());
-        let _invoker = invoker.unwrap_or(self.invoker.clone());
-        let _env = match &env {
-            Some(e) => Some(e.as_slice()),
-            None => match &self.env {
-                Some(e) => Some(e.as_slice()),
-                None => None,
-            },
+    pub fn get_safe_initializer(&self, args: &SafeArgsGetSafeInitializer, invoke_options: Option<InvokeOptions>) -> Result<String, Error> {
+        let (_uri, _invoker, _env) = if let Some(invoke_option) = invoke_options {
+            let uri = invoke_option.uri.clone().unwrap_or_else(|| self.uri.clone());
+            let invoker = invoke_option.client.clone().unwrap_or_else(|| self.invoker.clone());
+            let env = invoke_option.env.clone().or_else(|| self.env.clone());
+            (uri, invoker, env)
+        } else {
+            (self.uri.clone(), self.invoker.clone(), self.env.clone())
         };
 
         let serialized_args = to_vec(&args).unwrap();
@@ -2344,22 +2395,21 @@ impl SafeModule {
             &_uri,
             "getSafeInitializer",
             opt_args,
-            _env,
+            _env.as_ref().map(|v| v.as_slice()),
             None
         )?;
 
         from_slice(result.as_slice()).map_err(Error::MsgpackError)
     }
 
-    pub fn create_transaction(&self, args: &SafeModuleArgsCreateTransaction, uri: Option<Uri>, invoker: Option<Arc<dyn Invoker>>, env: Option<Vec<u8>>) -> Result<SafeSafeTransaction, Error> {
-        let _uri = uri.unwrap_or(self.uri.clone());
-        let _invoker = invoker.unwrap_or(self.invoker.clone());
-        let _env = match &env {
-            Some(e) => Some(e.as_slice()),
-            None => match &self.env {
-                Some(e) => Some(e.as_slice()),
-                None => None,
-            },
+    pub fn create_transaction(&self, args: &SafeArgsCreateTransaction, invoke_options: Option<InvokeOptions>) -> Result<SafeSafeTransaction, Error> {
+        let (_uri, _invoker, _env) = if let Some(invoke_option) = invoke_options {
+            let uri = invoke_option.uri.clone().unwrap_or_else(|| self.uri.clone());
+            let invoker = invoke_option.client.clone().unwrap_or_else(|| self.invoker.clone());
+            let env = invoke_option.env.clone().or_else(|| self.env.clone());
+            (uri, invoker, env)
+        } else {
+            (self.uri.clone(), self.invoker.clone(), self.env.clone())
         };
 
         let serialized_args = to_vec(&args).unwrap();
@@ -2368,22 +2418,21 @@ impl SafeModule {
             &_uri,
             "createTransaction",
             opt_args,
-            _env,
+            _env.as_ref().map(|v| v.as_slice()),
             None
         )?;
 
         from_slice(result.as_slice()).map_err(Error::MsgpackError)
     }
 
-    pub fn create_multi_send_transaction(&self, args: &SafeModuleArgsCreateMultiSendTransaction, uri: Option<Uri>, invoker: Option<Arc<dyn Invoker>>, env: Option<Vec<u8>>) -> Result<SafeSafeTransaction, Error> {
-        let _uri = uri.unwrap_or(self.uri.clone());
-        let _invoker = invoker.unwrap_or(self.invoker.clone());
-        let _env = match &env {
-            Some(e) => Some(e.as_slice()),
-            None => match &self.env {
-                Some(e) => Some(e.as_slice()),
-                None => None,
-            },
+    pub fn create_multi_send_transaction(&self, args: &SafeArgsCreateMultiSendTransaction, invoke_options: Option<InvokeOptions>) -> Result<SafeSafeTransaction, Error> {
+        let (_uri, _invoker, _env) = if let Some(invoke_option) = invoke_options {
+            let uri = invoke_option.uri.clone().unwrap_or_else(|| self.uri.clone());
+            let invoker = invoke_option.client.clone().unwrap_or_else(|| self.invoker.clone());
+            let env = invoke_option.env.clone().or_else(|| self.env.clone());
+            (uri, invoker, env)
+        } else {
+            (self.uri.clone(), self.invoker.clone(), self.env.clone())
         };
 
         let serialized_args = to_vec(&args).unwrap();
@@ -2392,22 +2441,21 @@ impl SafeModule {
             &_uri,
             "createMultiSendTransaction",
             opt_args,
-            _env,
+            _env.as_ref().map(|v| v.as_slice()),
             None
         )?;
 
         from_slice(result.as_slice()).map_err(Error::MsgpackError)
     }
 
-    pub fn add_signature(&self, args: &SafeModuleArgsAddSignature, uri: Option<Uri>, invoker: Option<Arc<dyn Invoker>>, env: Option<Vec<u8>>) -> Result<SafeSafeTransaction, Error> {
-        let _uri = uri.unwrap_or(self.uri.clone());
-        let _invoker = invoker.unwrap_or(self.invoker.clone());
-        let _env = match &env {
-            Some(e) => Some(e.as_slice()),
-            None => match &self.env {
-                Some(e) => Some(e.as_slice()),
-                None => None,
-            },
+    pub fn add_signature(&self, args: &SafeArgsAddSignature, invoke_options: Option<InvokeOptions>) -> Result<SafeSafeTransaction, Error> {
+        let (_uri, _invoker, _env) = if let Some(invoke_option) = invoke_options {
+            let uri = invoke_option.uri.clone().unwrap_or_else(|| self.uri.clone());
+            let invoker = invoke_option.client.clone().unwrap_or_else(|| self.invoker.clone());
+            let env = invoke_option.env.clone().or_else(|| self.env.clone());
+            (uri, invoker, env)
+        } else {
+            (self.uri.clone(), self.invoker.clone(), self.env.clone())
         };
 
         let serialized_args = to_vec(&args).unwrap();
@@ -2416,22 +2464,21 @@ impl SafeModule {
             &_uri,
             "addSignature",
             opt_args,
-            _env,
+            _env.as_ref().map(|v| v.as_slice()),
             None
         )?;
 
         from_slice(result.as_slice()).map_err(Error::MsgpackError)
     }
 
-    pub fn get_transaction_hash(&self, args: &SafeModuleArgsGetTransactionHash, uri: Option<Uri>, invoker: Option<Arc<dyn Invoker>>, env: Option<Vec<u8>>) -> Result<String, Error> {
-        let _uri = uri.unwrap_or(self.uri.clone());
-        let _invoker = invoker.unwrap_or(self.invoker.clone());
-        let _env = match &env {
-            Some(e) => Some(e.as_slice()),
-            None => match &self.env {
-                Some(e) => Some(e.as_slice()),
-                None => None,
-            },
+    pub fn get_transaction_hash(&self, args: &SafeArgsGetTransactionHash, invoke_options: Option<InvokeOptions>) -> Result<String, Error> {
+        let (_uri, _invoker, _env) = if let Some(invoke_option) = invoke_options {
+            let uri = invoke_option.uri.clone().unwrap_or_else(|| self.uri.clone());
+            let invoker = invoke_option.client.clone().unwrap_or_else(|| self.invoker.clone());
+            let env = invoke_option.env.clone().or_else(|| self.env.clone());
+            (uri, invoker, env)
+        } else {
+            (self.uri.clone(), self.invoker.clone(), self.env.clone())
         };
 
         let serialized_args = to_vec(&args).unwrap();
@@ -2440,22 +2487,21 @@ impl SafeModule {
             &_uri,
             "getTransactionHash",
             opt_args,
-            _env,
+            _env.as_ref().map(|v| v.as_slice()),
             None
         )?;
 
         from_slice(result.as_slice()).map_err(Error::MsgpackError)
     }
 
-    pub fn sign_transaction_hash(&self, args: &SafeModuleArgsSignTransactionHash, uri: Option<Uri>, invoker: Option<Arc<dyn Invoker>>, env: Option<Vec<u8>>) -> Result<SafeSafeSignature, Error> {
-        let _uri = uri.unwrap_or(self.uri.clone());
-        let _invoker = invoker.unwrap_or(self.invoker.clone());
-        let _env = match &env {
-            Some(e) => Some(e.as_slice()),
-            None => match &self.env {
-                Some(e) => Some(e.as_slice()),
-                None => None,
-            },
+    pub fn sign_transaction_hash(&self, args: &SafeArgsSignTransactionHash, invoke_options: Option<InvokeOptions>) -> Result<SafeSafeSignature, Error> {
+        let (_uri, _invoker, _env) = if let Some(invoke_option) = invoke_options {
+            let uri = invoke_option.uri.clone().unwrap_or_else(|| self.uri.clone());
+            let invoker = invoke_option.client.clone().unwrap_or_else(|| self.invoker.clone());
+            let env = invoke_option.env.clone().or_else(|| self.env.clone());
+            (uri, invoker, env)
+        } else {
+            (self.uri.clone(), self.invoker.clone(), self.env.clone())
         };
 
         let serialized_args = to_vec(&args).unwrap();
@@ -2464,22 +2510,21 @@ impl SafeModule {
             &_uri,
             "signTransactionHash",
             opt_args,
-            _env,
+            _env.as_ref().map(|v| v.as_slice()),
             None
         )?;
 
         from_slice(result.as_slice()).map_err(Error::MsgpackError)
     }
 
-    pub fn approve_transaction_hash(&self, args: &SafeModuleArgsApproveTransactionHash, uri: Option<Uri>, invoker: Option<Arc<dyn Invoker>>, env: Option<Vec<u8>>) -> Result<SafeEthersTxReceipt, Error> {
-        let _uri = uri.unwrap_or(self.uri.clone());
-        let _invoker = invoker.unwrap_or(self.invoker.clone());
-        let _env = match &env {
-            Some(e) => Some(e.as_slice()),
-            None => match &self.env {
-                Some(e) => Some(e.as_slice()),
-                None => None,
-            },
+    pub fn approve_transaction_hash(&self, args: &SafeArgsApproveTransactionHash, invoke_options: Option<InvokeOptions>) -> Result<SafeEthersTxReceipt, Error> {
+        let (_uri, _invoker, _env) = if let Some(invoke_option) = invoke_options {
+            let uri = invoke_option.uri.clone().unwrap_or_else(|| self.uri.clone());
+            let invoker = invoke_option.client.clone().unwrap_or_else(|| self.invoker.clone());
+            let env = invoke_option.env.clone().or_else(|| self.env.clone());
+            (uri, invoker, env)
+        } else {
+            (self.uri.clone(), self.invoker.clone(), self.env.clone())
         };
 
         let serialized_args = to_vec(&args).unwrap();
@@ -2488,22 +2533,21 @@ impl SafeModule {
             &_uri,
             "approveTransactionHash",
             opt_args,
-            _env,
+            _env.as_ref().map(|v| v.as_slice()),
             None
         )?;
 
         from_slice(result.as_slice()).map_err(Error::MsgpackError)
     }
 
-    pub fn execute_transaction(&self, args: &SafeModuleArgsExecuteTransaction, uri: Option<Uri>, invoker: Option<Arc<dyn Invoker>>, env: Option<Vec<u8>>) -> Result<SafeEthersTxReceipt, Error> {
-        let _uri = uri.unwrap_or(self.uri.clone());
-        let _invoker = invoker.unwrap_or(self.invoker.clone());
-        let _env = match &env {
-            Some(e) => Some(e.as_slice()),
-            None => match &self.env {
-                Some(e) => Some(e.as_slice()),
-                None => None,
-            },
+    pub fn execute_transaction(&self, args: &SafeArgsExecuteTransaction, invoke_options: Option<InvokeOptions>) -> Result<SafeEthersTxReceipt, Error> {
+        let (_uri, _invoker, _env) = if let Some(invoke_option) = invoke_options {
+            let uri = invoke_option.uri.clone().unwrap_or_else(|| self.uri.clone());
+            let invoker = invoke_option.client.clone().unwrap_or_else(|| self.invoker.clone());
+            let env = invoke_option.env.clone().or_else(|| self.env.clone());
+            (uri, invoker, env)
+        } else {
+            (self.uri.clone(), self.invoker.clone(), self.env.clone())
         };
 
         let serialized_args = to_vec(&args).unwrap();
@@ -2512,22 +2556,21 @@ impl SafeModule {
             &_uri,
             "executeTransaction",
             opt_args,
-            _env,
+            _env.as_ref().map(|v| v.as_slice()),
             None
         )?;
 
         from_slice(result.as_slice()).map_err(Error::MsgpackError)
     }
 
-    pub fn get_owners_who_approved_tx(&self, args: &SafeModuleArgsGetOwnersWhoApprovedTx, uri: Option<Uri>, invoker: Option<Arc<dyn Invoker>>, env: Option<Vec<u8>>) -> Result<Vec<String>, Error> {
-        let _uri = uri.unwrap_or(self.uri.clone());
-        let _invoker = invoker.unwrap_or(self.invoker.clone());
-        let _env = match &env {
-            Some(e) => Some(e.as_slice()),
-            None => match &self.env {
-                Some(e) => Some(e.as_slice()),
-                None => None,
-            },
+    pub fn get_owners_who_approved_tx(&self, args: &SafeArgsGetOwnersWhoApprovedTx, invoke_options: Option<InvokeOptions>) -> Result<Vec<String>, Error> {
+        let (_uri, _invoker, _env) = if let Some(invoke_option) = invoke_options {
+            let uri = invoke_option.uri.clone().unwrap_or_else(|| self.uri.clone());
+            let invoker = invoke_option.client.clone().unwrap_or_else(|| self.invoker.clone());
+            let env = invoke_option.env.clone().or_else(|| self.env.clone());
+            (uri, invoker, env)
+        } else {
+            (self.uri.clone(), self.invoker.clone(), self.env.clone())
         };
 
         let serialized_args = to_vec(&args).unwrap();
@@ -2536,22 +2579,21 @@ impl SafeModule {
             &_uri,
             "getOwnersWhoApprovedTx",
             opt_args,
-            _env,
+            _env.as_ref().map(|v| v.as_slice()),
             None
         )?;
 
         from_slice(result.as_slice()).map_err(Error::MsgpackError)
     }
 
-    pub fn get_signature(&self, args: &SafeModuleArgsGetSignature, uri: Option<Uri>, invoker: Option<Arc<dyn Invoker>>, env: Option<Vec<u8>>) -> Result<SafeSafeTransaction, Error> {
-        let _uri = uri.unwrap_or(self.uri.clone());
-        let _invoker = invoker.unwrap_or(self.invoker.clone());
-        let _env = match &env {
-            Some(e) => Some(e.as_slice()),
-            None => match &self.env {
-                Some(e) => Some(e.as_slice()),
-                None => None,
-            },
+    pub fn get_signature(&self, args: &SafeArgsGetSignature, invoke_options: Option<InvokeOptions>) -> Result<SafeSafeTransaction, Error> {
+        let (_uri, _invoker, _env) = if let Some(invoke_option) = invoke_options {
+            let uri = invoke_option.uri.clone().unwrap_or_else(|| self.uri.clone());
+            let invoker = invoke_option.client.clone().unwrap_or_else(|| self.invoker.clone());
+            let env = invoke_option.env.clone().or_else(|| self.env.clone());
+            (uri, invoker, env)
+        } else {
+            (self.uri.clone(), self.invoker.clone(), self.env.clone())
         };
 
         let serialized_args = to_vec(&args).unwrap();
@@ -2560,22 +2602,21 @@ impl SafeModule {
             &_uri,
             "getSignature",
             opt_args,
-            _env,
+            _env.as_ref().map(|v| v.as_slice()),
             None
         )?;
 
         from_slice(result.as_slice()).map_err(Error::MsgpackError)
     }
 
-    pub fn get_owners(&self, args: &SafeModuleArgsGetOwners, uri: Option<Uri>, invoker: Option<Arc<dyn Invoker>>, env: Option<Vec<u8>>) -> Result<Vec<String>, Error> {
-        let _uri = uri.unwrap_or(self.uri.clone());
-        let _invoker = invoker.unwrap_or(self.invoker.clone());
-        let _env = match &env {
-            Some(e) => Some(e.as_slice()),
-            None => match &self.env {
-                Some(e) => Some(e.as_slice()),
-                None => None,
-            },
+    pub fn get_owners(&self, args: &SafeArgsGetOwners, invoke_options: Option<InvokeOptions>) -> Result<Vec<String>, Error> {
+        let (_uri, _invoker, _env) = if let Some(invoke_option) = invoke_options {
+            let uri = invoke_option.uri.clone().unwrap_or_else(|| self.uri.clone());
+            let invoker = invoke_option.client.clone().unwrap_or_else(|| self.invoker.clone());
+            let env = invoke_option.env.clone().or_else(|| self.env.clone());
+            (uri, invoker, env)
+        } else {
+            (self.uri.clone(), self.invoker.clone(), self.env.clone())
         };
 
         let serialized_args = to_vec(&args).unwrap();
@@ -2584,22 +2625,21 @@ impl SafeModule {
             &_uri,
             "getOwners",
             opt_args,
-            _env,
+            _env.as_ref().map(|v| v.as_slice()),
             None
         )?;
 
         from_slice(result.as_slice()).map_err(Error::MsgpackError)
     }
 
-    pub fn get_threshold(&self, args: &SafeModuleArgsGetThreshold, uri: Option<Uri>, invoker: Option<Arc<dyn Invoker>>, env: Option<Vec<u8>>) -> Result<u32, Error> {
-        let _uri = uri.unwrap_or(self.uri.clone());
-        let _invoker = invoker.unwrap_or(self.invoker.clone());
-        let _env = match &env {
-            Some(e) => Some(e.as_slice()),
-            None => match &self.env {
-                Some(e) => Some(e.as_slice()),
-                None => None,
-            },
+    pub fn get_threshold(&self, args: &SafeArgsGetThreshold, invoke_options: Option<InvokeOptions>) -> Result<u32, Error> {
+        let (_uri, _invoker, _env) = if let Some(invoke_option) = invoke_options {
+            let uri = invoke_option.uri.clone().unwrap_or_else(|| self.uri.clone());
+            let invoker = invoke_option.client.clone().unwrap_or_else(|| self.invoker.clone());
+            let env = invoke_option.env.clone().or_else(|| self.env.clone());
+            (uri, invoker, env)
+        } else {
+            (self.uri.clone(), self.invoker.clone(), self.env.clone())
         };
 
         let serialized_args = to_vec(&args).unwrap();
@@ -2608,22 +2648,21 @@ impl SafeModule {
             &_uri,
             "getThreshold",
             opt_args,
-            _env,
+            _env.as_ref().map(|v| v.as_slice()),
             None
         )?;
 
         from_slice(result.as_slice()).map_err(Error::MsgpackError)
     }
 
-    pub fn is_owner(&self, args: &SafeModuleArgsIsOwner, uri: Option<Uri>, invoker: Option<Arc<dyn Invoker>>, env: Option<Vec<u8>>) -> Result<bool, Error> {
-        let _uri = uri.unwrap_or(self.uri.clone());
-        let _invoker = invoker.unwrap_or(self.invoker.clone());
-        let _env = match &env {
-            Some(e) => Some(e.as_slice()),
-            None => match &self.env {
-                Some(e) => Some(e.as_slice()),
-                None => None,
-            },
+    pub fn is_owner(&self, args: &SafeArgsIsOwner, invoke_options: Option<InvokeOptions>) -> Result<bool, Error> {
+        let (_uri, _invoker, _env) = if let Some(invoke_option) = invoke_options {
+            let uri = invoke_option.uri.clone().unwrap_or_else(|| self.uri.clone());
+            let invoker = invoke_option.client.clone().unwrap_or_else(|| self.invoker.clone());
+            let env = invoke_option.env.clone().or_else(|| self.env.clone());
+            (uri, invoker, env)
+        } else {
+            (self.uri.clone(), self.invoker.clone(), self.env.clone())
         };
 
         let serialized_args = to_vec(&args).unwrap();
@@ -2632,22 +2671,21 @@ impl SafeModule {
             &_uri,
             "isOwner",
             opt_args,
-            _env,
+            _env.as_ref().map(|v| v.as_slice()),
             None
         )?;
 
         from_slice(result.as_slice()).map_err(Error::MsgpackError)
     }
 
-    pub fn get_modules(&self, args: &SafeModuleArgsGetModules, uri: Option<Uri>, invoker: Option<Arc<dyn Invoker>>, env: Option<Vec<u8>>) -> Result<Vec<String>, Error> {
-        let _uri = uri.unwrap_or(self.uri.clone());
-        let _invoker = invoker.unwrap_or(self.invoker.clone());
-        let _env = match &env {
-            Some(e) => Some(e.as_slice()),
-            None => match &self.env {
-                Some(e) => Some(e.as_slice()),
-                None => None,
-            },
+    pub fn get_modules(&self, args: &SafeArgsGetModules, invoke_options: Option<InvokeOptions>) -> Result<Vec<String>, Error> {
+        let (_uri, _invoker, _env) = if let Some(invoke_option) = invoke_options {
+            let uri = invoke_option.uri.clone().unwrap_or_else(|| self.uri.clone());
+            let invoker = invoke_option.client.clone().unwrap_or_else(|| self.invoker.clone());
+            let env = invoke_option.env.clone().or_else(|| self.env.clone());
+            (uri, invoker, env)
+        } else {
+            (self.uri.clone(), self.invoker.clone(), self.env.clone())
         };
 
         let serialized_args = to_vec(&args).unwrap();
@@ -2656,22 +2694,21 @@ impl SafeModule {
             &_uri,
             "getModules",
             opt_args,
-            _env,
+            _env.as_ref().map(|v| v.as_slice()),
             None
         )?;
 
         from_slice(result.as_slice()).map_err(Error::MsgpackError)
     }
 
-    pub fn is_module_enabled(&self, args: &SafeModuleArgsIsModuleEnabled, uri: Option<Uri>, invoker: Option<Arc<dyn Invoker>>, env: Option<Vec<u8>>) -> Result<bool, Error> {
-        let _uri = uri.unwrap_or(self.uri.clone());
-        let _invoker = invoker.unwrap_or(self.invoker.clone());
-        let _env = match &env {
-            Some(e) => Some(e.as_slice()),
-            None => match &self.env {
-                Some(e) => Some(e.as_slice()),
-                None => None,
-            },
+    pub fn is_module_enabled(&self, args: &SafeArgsIsModuleEnabled, invoke_options: Option<InvokeOptions>) -> Result<bool, Error> {
+        let (_uri, _invoker, _env) = if let Some(invoke_option) = invoke_options {
+            let uri = invoke_option.uri.clone().unwrap_or_else(|| self.uri.clone());
+            let invoker = invoke_option.client.clone().unwrap_or_else(|| self.invoker.clone());
+            let env = invoke_option.env.clone().or_else(|| self.env.clone());
+            (uri, invoker, env)
+        } else {
+            (self.uri.clone(), self.invoker.clone(), self.env.clone())
         };
 
         let serialized_args = to_vec(&args).unwrap();
@@ -2680,22 +2717,21 @@ impl SafeModule {
             &_uri,
             "isModuleEnabled",
             opt_args,
-            _env,
+            _env.as_ref().map(|v| v.as_slice()),
             None
         )?;
 
         from_slice(result.as_slice()).map_err(Error::MsgpackError)
     }
 
-    pub fn encode_enable_module_data(&self, args: &SafeModuleArgsEncodeEnableModuleData, uri: Option<Uri>, invoker: Option<Arc<dyn Invoker>>, env: Option<Vec<u8>>) -> Result<String, Error> {
-        let _uri = uri.unwrap_or(self.uri.clone());
-        let _invoker = invoker.unwrap_or(self.invoker.clone());
-        let _env = match &env {
-            Some(e) => Some(e.as_slice()),
-            None => match &self.env {
-                Some(e) => Some(e.as_slice()),
-                None => None,
-            },
+    pub fn encode_enable_module_data(&self, args: &SafeArgsEncodeEnableModuleData, invoke_options: Option<InvokeOptions>) -> Result<String, Error> {
+        let (_uri, _invoker, _env) = if let Some(invoke_option) = invoke_options {
+            let uri = invoke_option.uri.clone().unwrap_or_else(|| self.uri.clone());
+            let invoker = invoke_option.client.clone().unwrap_or_else(|| self.invoker.clone());
+            let env = invoke_option.env.clone().or_else(|| self.env.clone());
+            (uri, invoker, env)
+        } else {
+            (self.uri.clone(), self.invoker.clone(), self.env.clone())
         };
 
         let serialized_args = to_vec(&args).unwrap();
@@ -2704,22 +2740,21 @@ impl SafeModule {
             &_uri,
             "encodeEnableModuleData",
             opt_args,
-            _env,
+            _env.as_ref().map(|v| v.as_slice()),
             None
         )?;
 
         from_slice(result.as_slice()).map_err(Error::MsgpackError)
     }
 
-    pub fn encode_disable_module_data(&self, args: &SafeModuleArgsEncodeDisableModuleData, uri: Option<Uri>, invoker: Option<Arc<dyn Invoker>>, env: Option<Vec<u8>>) -> Result<String, Error> {
-        let _uri = uri.unwrap_or(self.uri.clone());
-        let _invoker = invoker.unwrap_or(self.invoker.clone());
-        let _env = match &env {
-            Some(e) => Some(e.as_slice()),
-            None => match &self.env {
-                Some(e) => Some(e.as_slice()),
-                None => None,
-            },
+    pub fn encode_disable_module_data(&self, args: &SafeArgsEncodeDisableModuleData, invoke_options: Option<InvokeOptions>) -> Result<String, Error> {
+        let (_uri, _invoker, _env) = if let Some(invoke_option) = invoke_options {
+            let uri = invoke_option.uri.clone().unwrap_or_else(|| self.uri.clone());
+            let invoker = invoke_option.client.clone().unwrap_or_else(|| self.invoker.clone());
+            let env = invoke_option.env.clone().or_else(|| self.env.clone());
+            (uri, invoker, env)
+        } else {
+            (self.uri.clone(), self.invoker.clone(), self.env.clone())
         };
 
         let serialized_args = to_vec(&args).unwrap();
@@ -2728,22 +2763,21 @@ impl SafeModule {
             &_uri,
             "encodeDisableModuleData",
             opt_args,
-            _env,
+            _env.as_ref().map(|v| v.as_slice()),
             None
         )?;
 
         from_slice(result.as_slice()).map_err(Error::MsgpackError)
     }
 
-    pub fn encode_multi_send_data(&self, args: &SafeModuleArgsEncodeMultiSendData, uri: Option<Uri>, invoker: Option<Arc<dyn Invoker>>, env: Option<Vec<u8>>) -> Result<String, Error> {
-        let _uri = uri.unwrap_or(self.uri.clone());
-        let _invoker = invoker.unwrap_or(self.invoker.clone());
-        let _env = match &env {
-            Some(e) => Some(e.as_slice()),
-            None => match &self.env {
-                Some(e) => Some(e.as_slice()),
-                None => None,
-            },
+    pub fn encode_multi_send_data(&self, args: &SafeArgsEncodeMultiSendData, invoke_options: Option<InvokeOptions>) -> Result<String, Error> {
+        let (_uri, _invoker, _env) = if let Some(invoke_option) = invoke_options {
+            let uri = invoke_option.uri.clone().unwrap_or_else(|| self.uri.clone());
+            let invoker = invoke_option.client.clone().unwrap_or_else(|| self.invoker.clone());
+            let env = invoke_option.env.clone().or_else(|| self.env.clone());
+            (uri, invoker, env)
+        } else {
+            (self.uri.clone(), self.invoker.clone(), self.env.clone())
         };
 
         let serialized_args = to_vec(&args).unwrap();
@@ -2752,22 +2786,21 @@ impl SafeModule {
             &_uri,
             "encodeMultiSendData",
             opt_args,
-            _env,
+            _env.as_ref().map(|v| v.as_slice()),
             None
         )?;
 
         from_slice(result.as_slice()).map_err(Error::MsgpackError)
     }
 
-    pub fn encode_add_owner_with_threshold_data(&self, args: &SafeModuleArgsEncodeAddOwnerWithThresholdData, uri: Option<Uri>, invoker: Option<Arc<dyn Invoker>>, env: Option<Vec<u8>>) -> Result<String, Error> {
-        let _uri = uri.unwrap_or(self.uri.clone());
-        let _invoker = invoker.unwrap_or(self.invoker.clone());
-        let _env = match &env {
-            Some(e) => Some(e.as_slice()),
-            None => match &self.env {
-                Some(e) => Some(e.as_slice()),
-                None => None,
-            },
+    pub fn encode_add_owner_with_threshold_data(&self, args: &SafeArgsEncodeAddOwnerWithThresholdData, invoke_options: Option<InvokeOptions>) -> Result<String, Error> {
+        let (_uri, _invoker, _env) = if let Some(invoke_option) = invoke_options {
+            let uri = invoke_option.uri.clone().unwrap_or_else(|| self.uri.clone());
+            let invoker = invoke_option.client.clone().unwrap_or_else(|| self.invoker.clone());
+            let env = invoke_option.env.clone().or_else(|| self.env.clone());
+            (uri, invoker, env)
+        } else {
+            (self.uri.clone(), self.invoker.clone(), self.env.clone())
         };
 
         let serialized_args = to_vec(&args).unwrap();
@@ -2776,22 +2809,21 @@ impl SafeModule {
             &_uri,
             "encodeAddOwnerWithThresholdData",
             opt_args,
-            _env,
+            _env.as_ref().map(|v| v.as_slice()),
             None
         )?;
 
         from_slice(result.as_slice()).map_err(Error::MsgpackError)
     }
 
-    pub fn encode_remove_owner_data(&self, args: &SafeModuleArgsEncodeRemoveOwnerData, uri: Option<Uri>, invoker: Option<Arc<dyn Invoker>>, env: Option<Vec<u8>>) -> Result<String, Error> {
-        let _uri = uri.unwrap_or(self.uri.clone());
-        let _invoker = invoker.unwrap_or(self.invoker.clone());
-        let _env = match &env {
-            Some(e) => Some(e.as_slice()),
-            None => match &self.env {
-                Some(e) => Some(e.as_slice()),
-                None => None,
-            },
+    pub fn encode_remove_owner_data(&self, args: &SafeArgsEncodeRemoveOwnerData, invoke_options: Option<InvokeOptions>) -> Result<String, Error> {
+        let (_uri, _invoker, _env) = if let Some(invoke_option) = invoke_options {
+            let uri = invoke_option.uri.clone().unwrap_or_else(|| self.uri.clone());
+            let invoker = invoke_option.client.clone().unwrap_or_else(|| self.invoker.clone());
+            let env = invoke_option.env.clone().or_else(|| self.env.clone());
+            (uri, invoker, env)
+        } else {
+            (self.uri.clone(), self.invoker.clone(), self.env.clone())
         };
 
         let serialized_args = to_vec(&args).unwrap();
@@ -2800,22 +2832,21 @@ impl SafeModule {
             &_uri,
             "encodeRemoveOwnerData",
             opt_args,
-            _env,
+            _env.as_ref().map(|v| v.as_slice()),
             None
         )?;
 
         from_slice(result.as_slice()).map_err(Error::MsgpackError)
     }
 
-    pub fn encode_swap_owner_data(&self, args: &SafeModuleArgsEncodeSwapOwnerData, uri: Option<Uri>, invoker: Option<Arc<dyn Invoker>>, env: Option<Vec<u8>>) -> Result<String, Error> {
-        let _uri = uri.unwrap_or(self.uri.clone());
-        let _invoker = invoker.unwrap_or(self.invoker.clone());
-        let _env = match &env {
-            Some(e) => Some(e.as_slice()),
-            None => match &self.env {
-                Some(e) => Some(e.as_slice()),
-                None => None,
-            },
+    pub fn encode_swap_owner_data(&self, args: &SafeArgsEncodeSwapOwnerData, invoke_options: Option<InvokeOptions>) -> Result<String, Error> {
+        let (_uri, _invoker, _env) = if let Some(invoke_option) = invoke_options {
+            let uri = invoke_option.uri.clone().unwrap_or_else(|| self.uri.clone());
+            let invoker = invoke_option.client.clone().unwrap_or_else(|| self.invoker.clone());
+            let env = invoke_option.env.clone().or_else(|| self.env.clone());
+            (uri, invoker, env)
+        } else {
+            (self.uri.clone(), self.invoker.clone(), self.env.clone())
         };
 
         let serialized_args = to_vec(&args).unwrap();
@@ -2824,22 +2855,21 @@ impl SafeModule {
             &_uri,
             "encodeSwapOwnerData",
             opt_args,
-            _env,
+            _env.as_ref().map(|v| v.as_slice()),
             None
         )?;
 
         from_slice(result.as_slice()).map_err(Error::MsgpackError)
     }
 
-    pub fn encode_change_threshold_data(&self, args: &SafeModuleArgsEncodeChangeThresholdData, uri: Option<Uri>, invoker: Option<Arc<dyn Invoker>>, env: Option<Vec<u8>>) -> Result<String, Error> {
-        let _uri = uri.unwrap_or(self.uri.clone());
-        let _invoker = invoker.unwrap_or(self.invoker.clone());
-        let _env = match &env {
-            Some(e) => Some(e.as_slice()),
-            None => match &self.env {
-                Some(e) => Some(e.as_slice()),
-                None => None,
-            },
+    pub fn encode_change_threshold_data(&self, args: &SafeArgsEncodeChangeThresholdData, invoke_options: Option<InvokeOptions>) -> Result<String, Error> {
+        let (_uri, _invoker, _env) = if let Some(invoke_option) = invoke_options {
+            let uri = invoke_option.uri.clone().unwrap_or_else(|| self.uri.clone());
+            let invoker = invoke_option.client.clone().unwrap_or_else(|| self.invoker.clone());
+            let env = invoke_option.env.clone().or_else(|| self.env.clone());
+            (uri, invoker, env)
+        } else {
+            (self.uri.clone(), self.invoker.clone(), self.env.clone())
         };
 
         let serialized_args = to_vec(&args).unwrap();
@@ -2848,7 +2878,7 @@ impl SafeModule {
             &_uri,
             "encodeChangeThresholdData",
             opt_args,
-            _env,
+            _env.as_ref().map(|v| v.as_slice()),
             None
         )?;
 

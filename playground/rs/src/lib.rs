@@ -16,12 +16,6 @@ pub const NETWORK: &str = "goerli";
 pub const SALT_NONCE: &str = "0x92291";
 
 #[derive(Serialize)]
-pub struct RelayKitEnv {
-    #[serde(rename = "relayerApiKey")]
-    pub relayer_api_key: String,
-}
-
-#[derive(Serialize)]
 pub struct AccountAbstractionKitEnv {
     pub connection: EthersConnection,
 }
@@ -57,7 +51,7 @@ pub fn get_client() -> Arc<PolywrapClient> {
         .add_envs(HashMap::from([
             (
                 uri!("wrapscan.io/polywrap/relay-kit@0.1.0"),
-                to_vec(&RelayKitEnv {
+                to_vec(&RelayerEnv {
                     relayer_api_key: "AiaCshYRyAUzTNfZZb8LftJaAl2SS3I8YwhJJXc5J7A_".to_string(),
                 })
                 .unwrap(),
@@ -91,14 +85,12 @@ pub fn get_client() -> Arc<PolywrapClient> {
     Arc::new(client)
 }
 
-pub fn create_transaction(ethers: EthersModule) -> (AccountAbstractionMetaTransactionData, String) {
+pub fn create_transaction(ethers: Ethers) -> (AccountAbstractionMetaTransactionData, String) {
     let encoded_function = ethers.encode_function(
-        &EthersModuleArgsEncodeFunction {
+        &EthersArgsEncodeFunction {
             method: "function store(uint256 num) public".to_string(),
             args: Some(vec!["99".to_string()]),
         },
-        None,
-        None,
         None,
     );
     let transaction = AccountAbstractionMetaTransactionData {
@@ -109,7 +101,7 @@ pub fn create_transaction(ethers: EthersModule) -> (AccountAbstractionMetaTransa
     };
 
     let gas_limit = ethers.estimate_transaction_gas(
-        &EthersModuleArgsEstimateTransactionGas {
+        &EthersArgsEstimateTransactionGas {
             tx: EthersTxRequest {
                 to: Some(transaction.clone().to),
                 from: None,
@@ -126,8 +118,6 @@ pub fn create_transaction(ethers: EthersModule) -> (AccountAbstractionMetaTransa
             },
             connection: None,
         },
-        None,
-        None,
         None,
     );
     (transaction, gas_limit.unwrap())

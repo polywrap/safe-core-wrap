@@ -5,44 +5,45 @@ use std::{ops::Add, str::FromStr};
 
 use num_bigint::BigInt;
 use safe_core_wrap_playground::{
-    create_transaction, get_client, AccountAbstractionDeploymentParameters,
-    AccountAbstractionMetaTransactionOptions, AccountAbstractionModule,
-    AccountAbstractionModuleArgsGetSafeAddress, AccountAbstractionModuleArgsRelayTransaction,
-    EthersModule, EthersModuleArgsGetBalance, EthersModuleArgsSendTransactionAndWait,
-    EthersModuleArgsToEth, EthersTxRequest, RelayerModule, RelayerModuleArgsGetEstimateFee,
-    SALT_NONCE,
+    create_transaction, get_client, AccountAbstraction, AccountAbstractionArgsGetSafeAddress,
+    AccountAbstractionArgsRelayTransaction, AccountAbstractionDeploymentParameters,
+    AccountAbstractionMetaTransactionOptions, Ethers, EthersArgsGetBalance,
+    EthersArgsSendTransactionAndWait, EthersArgsToEth, EthersTxRequest, InvokeOptions, Relayer,
+    RelayerArgsGetEstimateFee, SALT_NONCE,
 };
 
 pub fn main() {
     let client = get_client();
 
-    let ethers = EthersModule::new(None, Some(client.clone()), None);
-    let relay = RelayerModule::new(None, Some(client.clone()), None);
-    let account_abstraction = AccountAbstractionModule::new(None, Some(client.clone()), None);
+    let invoke_options = InvokeOptions {
+        uri: None,
+        client: Some(client),
+        env: None,
+    };
+
+    let ethers = Ethers::new(Some(invoke_options.clone()));
+    let relay = Relayer::new(Some(invoke_options.clone()));
+    let account_abstraction = AccountAbstraction::new(Some(invoke_options.clone()));
     let (transaction, gas_limit) = create_transaction(ethers.clone());
 
     let safe_address = account_abstraction.get_safe_address(
-        &AccountAbstractionModuleArgsGetSafeAddress {
+        &AccountAbstractionArgsGetSafeAddress {
             config: Some(AccountAbstractionDeploymentParameters {
                 salt_nonce: Some(SALT_NONCE.to_string()),
                 custom_contract_addresses: None,
             }),
         },
         None,
-        None,
-        None,
     );
 
     println!("Predicted safe address: {}", safe_address.clone().unwrap());
 
     let safe_balance = ethers.get_balance(
-        &EthersModuleArgsGetBalance {
+        &EthersArgsGetBalance {
             address: safe_address.clone().unwrap(),
             block_tag: None,
             connection: None,
         },
-        None,
-        None,
         None,
     );
 
@@ -51,13 +52,11 @@ pub fn main() {
     }
 
     let estimation = relay.get_estimate_fee(
-        &RelayerModuleArgsGetEstimateFee {
+        &RelayerArgsGetEstimateFee {
             chain_id: 5,
             gas_limit,
             gas_token: None,
         },
-        None,
-        None,
         None,
     );
 
@@ -73,11 +72,9 @@ pub fn main() {
     let safe_balance = BigInt::from_str(&safe_balance.unwrap()).unwrap();
     if safe_balance.lt(&estimation_in_wei) {
         let value_in_eth = ethers.to_eth(
-            &EthersModuleArgsToEth {
+            &EthersArgsToEth {
                 wei: estimation_in_wei.to_string(),
             },
-            None,
-            None,
             None,
         );
         if value_in_eth.is_err() {
@@ -88,7 +85,7 @@ pub fn main() {
         }
         println!("Funding the safe with {} ETH", value_in_eth.unwrap());
         let fund_tx = ethers.send_transaction_and_wait(
-            &EthersModuleArgsSendTransactionAndWait {
+            &EthersArgsSendTransactionAndWait {
                 tx: EthersTxRequest {
                     value: Some(estimation_in_wei.to_string()),
                     to: Some(safe_address.unwrap()),
@@ -106,8 +103,6 @@ pub fn main() {
                 connection: None,
             },
             None,
-            None,
-            None,
         );
         if fund_tx.is_err() {
             panic!("Error funding the safe: {}", fund_tx.unwrap_err());
@@ -122,7 +117,7 @@ pub fn main() {
     };
 
     let response = account_abstraction.relay_transaction(
-        &AccountAbstractionModuleArgsRelayTransaction {
+        &AccountAbstractionArgsRelayTransaction {
             transaction,
             options: meta_transaction_options,
             config: Some(AccountAbstractionDeploymentParameters {
@@ -130,8 +125,6 @@ pub fn main() {
                 custom_contract_addresses: None,
             }),
         },
-        None,
-        None,
         None,
     );
     if response.is_err() {
