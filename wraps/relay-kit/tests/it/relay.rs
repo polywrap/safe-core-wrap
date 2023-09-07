@@ -1,15 +1,8 @@
 use super::wrap::types::{
-    RelayerMetaTransactionOptions, RelayerModule, RelayerModuleArgsRelayTransaction,
+    InvokeOptions, Relayer, RelayerArgsRelayTransaction, RelayerEnv, RelayerMetaTransactionOptions,
     RelayerRelayTransaction,
 };
 use polywrap_msgpack_serde::to_vec;
-use serde::Serialize;
-
-#[derive(Serialize)]
-struct Env {
-    #[serde(rename = "relayerApiKey")]
-    relayer_api_key: String,
-}
 
 #[test]
 fn call_relay_transaction() {
@@ -19,16 +12,18 @@ fn call_relay_transaction() {
         is_sponsored: None,
     };
 
-    let relayer = RelayerModule::new(
-        None,
-        None,
-        Some(
-            to_vec(&Env {
+    let invoke_options = InvokeOptions {
+        uri: None,
+        client: None,
+        env: Some(
+            to_vec(&RelayerEnv {
                 relayer_api_key: "AiaCshYRyAUzTNfZZb8LftJaAl2SS3I8YwhJJXc5J7A_".to_string(),
             })
             .unwrap(),
         ),
-    );
+    };
+
+    let relayer = Relayer::new(Some(invoke_options));
 
     let transaction = RelayerRelayTransaction {
         target: "0xA045eb75e78f4988d42c3cd201365bDD5D76D406".to_string(),
@@ -37,12 +32,7 @@ fn call_relay_transaction() {
         options
     };
 
-    let result = relayer.relay_transaction(
-        &RelayerModuleArgsRelayTransaction { transaction },
-        None,
-        None,
-        None,
-    );
+    let result = relayer.relay_transaction(&RelayerArgsRelayTransaction { transaction }, None);
 
     assert!(result.is_ok());
 }

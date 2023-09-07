@@ -7,15 +7,11 @@ use std::{collections::HashMap, env, sync::Arc};
 
 use wrap::types::EthersConnection;
 
+use self::wrap::types::{AccountAbstraction, Relayer, RelayerEnv, Safe};
+
 mod paid_transaction;
 mod sponsored_transaction;
 mod wrap;
-
-#[derive(Serialize)]
-pub struct RelayKitEnv {
-    #[serde(rename = "relayerApiKey")]
-    pub relayer_api_key: String,
-}
 
 #[derive(Serialize)]
 pub struct AccountAbstractionKitEnv {
@@ -55,14 +51,14 @@ pub fn get_client() -> Arc<PolywrapClient> {
         )
         .add_envs(HashMap::from([
             (
-                uri!("wrapscan.io/polywrap/safe-relay-kit@0.0.1"),
-                to_vec(&RelayKitEnv {
+                Safe::default_uri(),
+                to_vec(&RelayerEnv {
                     relayer_api_key: "AiaCshYRyAUzTNfZZb8LftJaAl2SS3I8YwhJJXc5J7A_".to_string(),
                 })
                 .unwrap(),
             ),
             (
-                uri!("wrapscan.io/polywrap/safe-account-abstraction-kit@0.0.1"),
+                AccountAbstraction::default_uri(),
                 to_vec(&AccountAbstractionKitEnv {
                     connection: EthersConnection {
                         node: None,
@@ -74,15 +70,15 @@ pub fn get_client() -> Arc<PolywrapClient> {
         ]))
         .add_redirects(HashMap::from([
             (
-                uri!("wrapscan.io/polywrap/safe-account-abstraction-kit@0.0.1"),
+                AccountAbstraction::default_uri(),
                 uri!("fs/../../wraps/account-abstraction-kit/build"),
             ),
             (
-                uri!("wrapscan.io/polywrap/safe-protocol-kit@0.0.1"),
+                Safe::default_uri(),
                 uri!("fs/../../wraps/protocol-kit/build"),
             ),
             (
-                uri!("wrapscan.io/polywrap/safe-relay-kit@0.0.1"),
+                Relayer::default_uri(),
                 uri!("fs/../../wraps/relay-kit/build"),
             ),
         ]));
