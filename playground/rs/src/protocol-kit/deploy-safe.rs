@@ -1,23 +1,24 @@
 extern crate safe_core_wrap_playground;
 use safe_core_wrap_playground::{
-    get_client, EthersModule, EthersModuleArgsGetSignerAddress, SafeDeploymentInput,
-    SafeEthersConnection, SafeModule, SafeModuleArgsDeploySafe,
-    SafeSafeAccountConfig as SafeAccountConfig, SafeSafeDeploymentConfig as SafeDeploymentConfig,
-    NETWORK, SALT_NONCE,
+    get_client, Ethers, EthersArgsGetSignerAddress, InvokeOptions, Safe, SafeArgsDeploySafe,
+    SafeDeploymentInput, SafeEthersConnection, SafeSafeAccountConfig as SafeAccountConfig,
+    SafeSafeDeploymentConfig as SafeDeploymentConfig, NETWORK, SALT_NONCE,
 };
 
 pub fn main() {
     let client = get_client();
 
-    let ethers = EthersModule::new(None, Some(client.clone()), None);
-    let safe = SafeModule::new(None, Some(client.clone()), None);
+    let invoke_options = InvokeOptions {
+        uri: None,
+        client: Some(client),
+        env: None,
+    };
 
-    let signer_address = ethers.get_signer_address(
-        &EthersModuleArgsGetSignerAddress { connection: None },
-        None,
-        None,
-        None,
-    );
+    let ethers = Ethers::new(Some(invoke_options.clone()));
+    let safe = Safe::new(Some(invoke_options.clone()));
+
+    let signer_address =
+        ethers.get_signer_address(&EthersArgsGetSignerAddress { connection: None }, None);
 
     println!(
         "Signer address fetched: {}",
@@ -46,12 +47,10 @@ pub fn main() {
         custom_contract_addresses: None,
     };
     let deploy = safe.deploy_safe(
-        &SafeModuleArgsDeploySafe {
+        &SafeArgsDeploySafe {
             input: deployment_input,
             tx_options: None,
         },
-        None,
-        None,
         None,
     );
 
